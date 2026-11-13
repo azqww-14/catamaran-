@@ -1,0 +1,2191 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Catamaran Sim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Concept : cockpit de bord sur fond de mer plein écran. Un seul univers sombre, volontairement (instruments sur l'eau). */
+:root{
+  --ink:#e8f2f7; --dim:#8aa4b3; --abyss:#06202b; --panel:rgba(6,28,38,.74); --edge:rgba(160,220,235,.18);
+  --sea:#2fd4c8; --amber:#ffb347; --alert:#ff5d5d; --ok:#5be38a;
+  --f-num:'Barlow Condensed','Arial Narrow',sans-serif; --f-body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;padding-left:0;padding-right:0}
+body{background:var(--abyss);color:var(--ink);font:500 15px/1.4 var(--f-body);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;background:var(--abyss)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--sea);outline-offset:2px}
+[hidden]{display:none!important}
+#fatal{position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;background:var(--abyss);z-index:50;font-size:18px}
+
+/* ---------- menu ---------- */
+#menu{position:fixed;inset:0;z-index:20;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  background:linear-gradient(180deg,rgba(4,22,32,.55),rgba(4,22,32,.92) 70%);
+  padding:max(20px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(24px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:980px;margin:0 auto;display:grid;gap:22px}
+h1{font:700 clamp(34px,7vw,64px)/.95 var(--f-num);letter-spacing:.02em;text-transform:uppercase;margin:8px 0 0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--sea)}
+.lead{max-width:62ch;color:var(--dim);margin:0}
+h2{font:600 13px var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+#boats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+#spots{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.card{display:grid;gap:4px;text-align:left;padding:14px 16px;border-radius:6px;background:rgba(10,40,54,.6);border:1px solid var(--edge)}
+.card b{font:600 22px var(--f-num);letter-spacing:.02em}
+.card span{color:var(--ink)}
+.card small{color:var(--dim)}
+.card.on{border-color:var(--sea);background:rgba(47,212,200,.14);box-shadow:inset 0 0 0 1px var(--sea)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.seg{display:flex;gap:0;border:1px solid var(--edge);border-radius:6px;overflow:hidden}
+.seg button{flex:1;padding:10px 8px;background:rgba(10,40,54,.6);border:0;border-right:1px solid var(--edge)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--sea);color:#032027;font-weight:600}
+.ctl{display:grid;gap:6px}
+.ctl label{display:flex;justify-content:space-between;gap:10px}
+.ctl output{font:600 18px var(--f-num);color:var(--sea)}
+.ctl small{color:var(--dim)}
+input[type=range]{width:100%;accent-color:var(--sea);height:28px}
+#foilOption{display:flex;align-items:center;gap:10px;width:max-content;max-width:100%;padding:10px 14px;border:1px solid var(--edge);border-radius:6px;background:rgba(10,40,54,.6)}
+#foilOption input{width:20px;height:20px;accent-color:var(--sea)}
+  .featureOptions{display:flex;flex-wrap:wrap;gap:10px 18px;padding:12px 14px;border:1px solid var(--edge);border-radius:6px;background:rgba(10,40,54,.45)}
+  .featureOptions label{display:flex;align-items:center;gap:8px;color:var(--ink)}
+  .featureOptions input{width:18px;height:18px;accent-color:var(--sea)}
+#foilOption:has(input:disabled){opacity:.55}
+#go{justify-self:start;padding:14px 34px;border-radius:6px;border:0;background:var(--sea);color:#032027;font:700 24px var(--f-num);letter-spacing:.08em;text-transform:uppercase}
+#go:hover{background:#5df0e4}
+.help{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px 20px;margin:0;padding:0;list-style:none;color:var(--dim)}
+kbd{font:600 13px var(--f-num);letter-spacing:.05em;border:1px solid var(--edge);border-bottom-width:2px;border-radius:4px;padding:0 6px;color:var(--ink);background:rgba(255,255,255,.06)}
+details{border:1px solid var(--edge);border-radius:6px;padding:10px 14px;background:rgba(10,40,54,.45)}
+summary{cursor:pointer;font-weight:600}
+details p,details li{color:var(--dim);margin:8px 0 0}
+details ul{margin:6px 0 0;padding-left:18px}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;z-index:10;pointer-events:none}
+#hud button{pointer-events:auto}
+.top{position:absolute;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:max(10px,env(safe-area-inset-top,0px));display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.pill{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:8px 12px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#state{font:600 20px var(--f-num);letter-spacing:.04em;text-transform:uppercase}
+#state[data-s=ok]{color:var(--ok)} #state[data-s=warn]{color:var(--amber)} #state[data-s=bad]{color:var(--alert)}
+#sail{color:var(--dim);font-size:13px} #sail[data-gust=on]{color:var(--amber);font-weight:600}
+.btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.btns button{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:7px 12px;font-size:13px}
+.btns button:hover{border-color:var(--sea)}
+.bottom{position:absolute;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.dialbox{width:220px;height:220px}
+canvas{display:block;max-width:100%}
+.mid{display:grid;gap:8px;justify-items:center}
+.speed{display:grid;justify-items:center;line-height:.9;padding:10px 26px 12px}
+.speed b{font:700 76px var(--f-num);font-variant-numeric:tabular-nums}
+.speed span{font:600 14px var(--f-num);letter-spacing:.2em;color:var(--dim)}
+.stats{display:flex;gap:0;padding:0}
+.stats div{display:grid;justify-items:center;padding:6px 14px;border-right:1px solid var(--edge);min-width:62px}
+.stats div:last-child{border-right:0}
+.stats b{font:600 26px var(--f-num);font-variant-numeric:tabular-nums}
+.stats span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.right{display:grid;gap:8px;justify-items:end}
+#prog{position:absolute;left:50%;top:22%;transform:translateX(-50%);text-align:center;display:grid;gap:8px;min-width:min(86vw,360px)}
+#prog b{font:700 26px var(--f-num);letter-spacing:.05em;text-transform:uppercase;color:var(--amber)}
+#prog i{display:block;height:8px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden}
+#progBar{display:block;height:100%;width:0;background:var(--ok)}
+#warn{position:absolute;left:50%;top:15%;transform:translateX(-50%);color:var(--alert);font:700 24px var(--f-num);text-transform:uppercase;letter-spacing:.08em}
+#goal{position:absolute;left:50%;top:max(64px,calc(env(safe-area-inset-top,0px) + 56px));transform:translateX(-50%);text-align:center;display:grid;gap:2px;white-space:nowrap;max-width:94vw}
+#goalT{font-size:14px} #timer{font:700 30px var(--f-num);font-variant-numeric:tabular-nums;color:var(--sea)}
+#mark{position:absolute;left:0;top:0;font:700 18px var(--f-num);padding:2px 10px;border-radius:4px;background:var(--panel);border:1px solid var(--amber);color:var(--amber);white-space:nowrap}
+#mark::after{content:"";position:absolute;left:50%;bottom:-8px;width:2px;height:8px;background:var(--amber)}
+#toast{position:absolute;left:50%;top:34%;transform:translate(-50%,6px);opacity:0;transition:opacity .25s,transform .25s;background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:10px 16px;text-align:center;max-width:min(90vw,520px)}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#flash{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%) scale(.9);opacity:0;pointer-events:none;text-align:center;font:700 clamp(40px,9vw,92px)/1 var(--f-num);letter-spacing:.06em;text-transform:uppercase;color:var(--amber);text-shadow:0 2px 14px rgba(0,0,0,.55);transition:opacity .35s,transform .35s}
+#flash small{display:block;margin-top:8px;font:600 clamp(16px,2.6vw,24px) var(--f-body);letter-spacing:.02em;text-transform:none;color:var(--ink)}
+#flash.show{opacity:1;transform:translate(-50%,-50%) scale(1);transition:opacity .08s,transform .12s}
+#flash.bad{color:var(--alert)}
+#paused,#end{position:fixed;inset:0;display:grid;place-items:center;background:rgba(3,16,24,.6);z-index:15}
+#paused b{font:700 48px var(--f-num);letter-spacing:.1em}
+#end .box{display:grid;gap:8px;text-align:center;padding:26px 34px;border-radius:8px;background:var(--panel);border:1px solid var(--sea);pointer-events:auto}
+#end h3{margin:0;font:700 34px var(--f-num);text-transform:uppercase;letter-spacing:.06em;color:var(--sea)}
+#end p{margin:0;color:var(--dim)} #end strong{font:700 40px var(--f-num);color:var(--ink)}
+#end button{margin-top:8px;padding:10px 20px;border:0;border-radius:6px;background:var(--sea);color:#032027;font:700 20px var(--f-num);letter-spacing:.06em;text-transform:uppercase}
+#speedlines{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:5;transition:opacity .3s;
+  background:repeating-conic-gradient(from 0deg at 50% 52%,rgba(255,255,255,.0) 0 5deg,rgba(255,255,255,.07) 5.6deg,rgba(255,255,255,0) 6.4deg 10deg);
+  -webkit-mask-image:radial-gradient(circle at 50% 52%,transparent 38%,#000 92%);mask-image:radial-gradient(circle at 50% 52%,transparent 38%,#000 92%)}
+
+/* ---------- tactile ---------- */
+#touch{position:fixed;inset:0;z-index:12;pointer-events:none}
+#touch button{pointer-events:auto;touch-action:none;background:rgba(6,28,38,.62);border:1px solid var(--edge);border-radius:10px;font:600 17px var(--f-num);letter-spacing:.04em;color:var(--ink);padding:0}
+#touch button.down{background:var(--sea);color:#032027}
+.pad{position:absolute;display:grid;gap:8px;bottom:max(12px,env(safe-area-inset-bottom,0px))}
+.pad.l{left:max(12px,env(safe-area-inset-left,0px));grid-template-columns:repeat(2,76px);grid-auto-rows:76px}
+.pad.r{right:max(12px,env(safe-area-inset-right,0px));grid-template-columns:repeat(3,70px);grid-auto-rows:60px}
+
+@media (max-width:860px){
+  .dialbox{width:120px;height:120px} .dialbox canvas{width:120px;height:120px}
+  .right{display:none}
+  .speed b{font-size:44px} .speed{padding:4px 14px 6px} .stats b{font-size:20px} .stats div{padding:4px 8px;min-width:48px}
+  .bottom{bottom:auto;top:max(58px,calc(env(safe-area-inset-top,0px) + 50px));align-items:flex-start}
+  #goal{top:auto;bottom:calc(168px + env(safe-area-inset-bottom,0px))}
+  #toast{top:30%}
+}
+@media (max-width:860px) and (orientation:landscape){
+  .pad.l{grid-template-columns:repeat(2,64px);grid-auto-rows:64px} .pad.r{grid-template-columns:repeat(3,62px);grid-auto-rows:52px}
+}
+@media (prefers-reduced-motion:reduce){#toast,#flash{transition:none}#speedlines{display:none}}
+</style>
+
+<canvas id="gl"></canvas>
+<div id="speedlines"></div>
+<div id="fatal" hidden></div>
+
+<section id="menu">
+  <div class="wrap">
+    <header>
+      <h1>Catamaran <em>Sim</em></h1>
+      <p class="lead">Navigation à la voile en 3D dans le navigateur. La vitesse, la gîte, les dessalages et le trapèze viennent d’un modèle physique calculé à chaque image, pas d’animations préparées.</p>
+    </header>
+    <div><h2>Spots de navigation</h2><div id="spots">
+      <button class="card on" type="button" data-spot="riviera"><b>Côte d’Azur</b><span>Mer Méditerranée · falaises et eau turquoise</span><small>Le décor d’origine, avec une côte plus détaillée</small></button>
+      <button class="card" type="button" data-spot="moorea"><b>Lagon de Moorea</b><span>Polynésie · récif corallien et poissons tropicaux</span><small>Eau cristalline, coraux, tortues et dauphins</small></button>
+      <button class="card" type="button" data-spot="dolphin"><b>Baie des dauphins</b><span>Archipel tropical · lagon et petites îles</span><small>Fonds clairs, bancs de poissons et vie marine</small></button>
+      <button class="card" type="button" data-spot="brest"><b>Rade de Brest</b><span>Bretagne · rade abritée et côtes rocheuses</span><small>Ambiance atlantique et eau plus fraîche</small></button>
+      <button class="card" type="button" data-spot="greece"><b>Mer Égée</b><span>Grèce · îles et mer bleue</span><small>Navigation entre les îles méditerranéennes</small></button>
+    </div></div>
+    <div><h2>Catamaran</h2><div id="boats"></div></div>
+    <div class="ctl">
+      <label id="foilOption" for="foils"><input id="foils" type="checkbox"><span>Ajouter des foils au Nacra 15</span></label>
+      <small id="foilHint">Sélectionne le Nacra 15 pour activer cette option.</small>
+    </div>
+    <div class="ctl"><h2>Spi (touche F en jeu)</h2>
+      <div class="seg"><button type="button" data-s="none">Sans spi</button><button type="button" data-s="reach">Spi de travers</button><button type="button" data-s="run">Spi de portant</button></div>
+      <small>Travers : plat, porte du travers au largue, s’étouffe vent arrière. Portant : grand et rond, porte du largue au vent arrière, faseye au travers.</small></div>
+    <div class="row">
+      <div class="ctl"><h2>Ciel</h2><div class="seg"><button type="button" data-w="sun">Ensoleillé</button><button type="button" data-w="cloudy">Nuageux</button><button type="button" data-w="grey">Couvert</button></div></div>
+      <div class="ctl"><h2>Mode</h2><div class="seg"><button type="button" data-m="free">Navigation libre</button><button type="button" data-m="course">Course aux bouées</button></div></div>
+    </div>
+    <div class="ctl"><h2>Carrière & garage</h2><div class="featureOptions"><span>Crédits : <b id="careerCredits">0</b></span><span>Courses gagnées : <b id="careerWins">0</b></span></div><label for="hullColor">Couleur des coques</label><input id="hullColor" type="color" value="#f3f4f2"><small>Les courses terminées rapportent des crédits. La couleur est appliquée au bateau sélectionné.</small><button id="repairBtn" type="button">Réparer le bateau · 50 crédits</button></div>
+    <div class="ctl"><h2>Fonctionnalités expérimentales</h2><div class="featureOptions">
+      <label><input id="dynamicWeather" type="checkbox" checked> Météo dynamique</label>
+      <label><input id="aiEnabled" type="checkbox" checked> Adversaires IA (en course)</label>
+    </div><small>La météo change uniquement en course, toutes les 60 secondes. Trois adversaires IA prennent le départ.</small></div>
+    <div class="ctl"><label for="hour">Heure de navigation <output id="hourV"></output></label><input id="hour" type="range" min="0" max="23.5" step="0.5" value="14"><small id="hourDesc">Choisis une heure : le ciel, la lumière et les reflets de la mer s’adaptent.</small></div>
+    <div class="row">
+      <div class="ctl"><label for="wind">Force du vent <output id="windV"></output></label><input id="wind" type="range" min="4" max="30" step="1" value="14"><small id="windBeaufort"></small></div>
+      <div class="ctl"><label for="dir">Provenance du vent <output id="dirV"></output></label><input id="dir" type="range" min="0" max="350" step="10" value="0"><small>Le départ se fait cap à l’Est.</small></div>
+      <div class="ctl"><label for="wave">Hauteur des vagues <output id="waveV"></output></label><input id="wave" type="range" min="1" max="25" step="1" value="8"><small>Creux à crête, houle dans le sens du vent.</small></div>
+    </div>
+    <button id="go" type="button">Démarrer</button>
+    <div>
+      <h2>Commandes</h2>
+      <ul class="help">
+        <li><kbd>←</kbd> <kbd>→</kbd> barre à bâbord / tribord</li>
+        <li><kbd>↑</kbd> voile réglée automatiquement (accélérer)</li>
+        <li><kbd>↓</kbd> voile choquée pour ralentir</li>
+        <li><kbd>Q</kbd> border la voile · <kbd>E</kbd> la choquer</li>
+        <li><kbd>Espace</kbd> choquer rapidement</li>
+        <li><kbd>R</kbd> maintenir pour redresser après un dessalage</li>
+        <li><kbd>F</kbd> envoyer / ranger le spi (porte au largue et au portant)</li>
+        <li><kbd>C</kbd> changer de caméra, dont la vue à hauteur des yeux · <kbd>P</kbd> pause</li>
+        <li><kbd>L</kbd> verrouiller / libérer la souris en vue équipier (libération automatique au dessalage)</li>
+        <li>Caméra orbitale : glisser et molette</li>
+      </ul>
+    </div>
+    <details>
+      <summary>Ce qui est simulé et ce qui reste approximatif</summary>
+      <p>Simulé à chaque image, à pas fixe de 1/120 s :</p>
+      <ul>
+        <li>Vent réel avec rafales et changements de direction, vent apparent recalculé selon la vitesse et le cap.</li>
+        <li>Portance et traînée de la grand-voile selon son incidence, décrochage et faseyement.</li>
+        <li>Résistance des coques, dérive latérale, poussée des safrans, inertie en avance, dérive et lacet.</li>
+        <li>Foils du Nacra 15 en option : appendices visibles, léger soulèvement et baisse de résistance à vitesse élevée.</li>
+        <li>Gîte, couple de redressement, levée de coque, enfournement, tangage et impacts dans les vagues (houle de quatre ondes, la même pour la physique et l’affichage).</li>
+        <li>Équipiers : poids et position qui agissent sur le couple, trapèze, changement de bord, projection à l’eau, remontée à bord.</li>
+        <li>Dessalage latéral, chavirage par l’avant, bateau à l’envers, procédure de redressement.</li>
+      </ul>
+      <p>Approximatif ou absent : modèle de bateau à un seul corps rigide avec coefficients estimés (pas les données des constructeurs), une seule voile simulée (le foc du Hobie 16 est visuel seulement), pas de contrôle fin du trapèze ni des équipiers en manuel, vagues en sinusoïdes sans déferlement, mer sans collision avec les côtes, aucune donnée réelle validée contre des mesures.</p>
+    </details>
+  </div>
+</section>
+
+<section id="hud" hidden>
+  <div class="top">
+    <div class="pill"><div id="state" data-s="ok">Navigation</div><div id="sail"></div></div>
+    <div class="btns"><button id="camBtn" type="button">Caméra (C)</button><button id="mouseBtn" type="button">Verrouiller souris (L)</button><button id="soundBtn" type="button">Son actif</button><button id="replayBtn" type="button">Replay</button><button id="pauseBtn" type="button">Pause</button><button id="menuBtn" type="button">Menu</button></div>
+  </div>
+  <div id="damageHud" class="pill" hidden>État du bateau : <b id="damageValue">100 %</b></div>
+  <div id="goal" class="pill" hidden><span id="goalT"></span><span id="timer">0 min 00,0 s</span></div>
+  <div id="mark" hidden></div>
+  <div id="warn" hidden>Retournez vers la zone de navigation</div>
+  <div id="prog" class="pill" hidden><b>Redressez le bateau : maintenez R</b><i><span id="progBar"></span></i></div>
+  <div id="toast"></div>
+  <div id="flash" aria-live="assertive"></div>
+  <div class="bottom">
+    <div class="pill dialbox" style="padding:0;background:none;border:0"><canvas id="dial" width="220" height="220"></canvas></div>
+    <div class="mid">
+      <div class="pill speed"><b id="spd">0,0</b><span>NŒUDS</span></div>
+      <div class="pill stats">
+        <div><b id="hdg">090</b><span>Cap °</span></div>
+        <div><b id="tws">14</b><span>Vent réel kn</span></div>
+        <div><b id="aws">0</b><span>Apparent kn</span></div>
+        <div><b id="vmg">0,0</b><span>VMG kn</span></div>
+        <div><b id="waveH">0,8</b><span>Vagues m</span></div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="pill" style="padding:6px 8px 0"><canvas id="heel" width="220" height="84"></canvas></div>
+      <div class="pill" style="padding:2px 8px"><canvas id="trim" width="220" height="42"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<section id="touch" hidden>
+  <div class="pad l"><button type="button" data-k="left" aria-label="Barre à bâbord">◀ Bâbord</button><button type="button" data-k="right" aria-label="Barre à tribord">Tribord ▶</button></div>
+  <div class="pad r">
+    <button type="button" data-k="in">Border</button><button type="button" data-k="up">Accélérer</button><button type="button" data-k="out">Choquer</button>
+    <button type="button" data-k="dump">Choquer vite</button><button type="button" data-k="down">Ralentir</button><button type="button" data-k="right_boat">Redresser</button>
+    <button type="button" data-k="spi">Spi (F)</button>
+  </div>
+</section>
+<div id="paused" hidden><b>PAUSE</b></div>
+<div id="end" hidden><div class="box"><h3>Arrivée</h3><p>Temps</p><strong id="endT"></strong><p>Vitesse maximale <span id="endV"></span></p><button id="again" type="button">Rejouer</button></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* physics.js — Modèle physique du catamaran (aucune dépendance graphique).
+ * Conventions : x = Est, z = Sud (le Nord est -z), cap en radians depuis le Nord, sens horaire.
+ * Repère bateau : avant = -z local, tribord = +x local, arrière = +z local.
+ * Gîte positive = tribord vers le bas. Tangage positif = étrave vers le haut. */
+(function (global) {
+  'use strict';
+  const G = 9.81, RHO_A = 1.225, KN = 0.514444, D2R = Math.PI / 180;
+  const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+  const wrapPi = a => { a = (a + Math.PI) % (2 * Math.PI); if (a < 0) a += 2 * Math.PI; return a - Math.PI; };
+  const sgn = x => (x >= 0 ? 1 : -1);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  function rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* Caractéristiques approximatives (ordre de grandeur des vrais bateaux, pas des données constructeur). */
+  const BOATS = {
+    hobie14: { id: 'hobie14', name: 'Hobie Cat 14', L: 4.27, B: 2.29, mass: 125, crew: [75, 70], S: 12.0, mastH: 7.4, boomL: 2.75, ceH: 3.0, kHull: 15, kWave: 3.2, kLat: 520, rudK: 90, desc: 'Compact et joueur' },
+    hobie16: { id: 'hobie16', name: 'Hobie Cat 16', L: 4.97, B: 2.41, mass: 145, crew: [80, 75], S: 15.5, mastH: 8.2, boomL: 3.2, ceH: 3.4, kHull: 14, kWave: 3.0, kLat: 560, rudK: 92, desc: 'Le classique polyvalent' },
+    dart18: { id: 'dart18', name: 'Dart 18', L: 5.50, B: 2.30, mass: 140, crew: [80, 75], S: 16.5, mastH: 9.0, boomL: 3.5, ceH: 3.7, kHull: 11, kWave: 2.4, kLat: 600, rudK: 100, desc: 'Rapide et exigeant' },
+    nacra15: { id: 'nacra15', name: 'Nacra 15', L: 4.55, B: 2.30, mass: 120, crew: [70, 70], S: 11.5, mastH: 7.8, boomL: 3.0, ceH: 3.2, kHull: 12, kWave: 2.6, kLat: 520, rudK: 95, desc: 'Léger et nerveux' },
+    nacra17: { id: 'nacra17', name: 'Nacra 17', L: 5.25, B: 2.59, mass: 132, crew: [70, 65], S: 18.0, mastH: 9.0, boomL: 3.4, ceH: 3.8, kHull: 10, kWave: 2.2, kLat: 610, rudK: 102, desc: 'Catamaran olympique à foils' },
+    tornado: { id: 'tornado', name: 'Tornado', L: 6.09, B: 3.05, mass: 155, crew: [80, 75], S: 21.8, mastH: 9.5, boomL: 3.7, ceH: 4.0, kHull: 9, kWave: 2.0, kLat: 680, rudK: 108, desc: 'Grand catamaran puissant' }
+  };
+
+  /* ---------- Houle : somme de 4 ondes directionnelles (partagée avec le shader de la mer) ---------- */
+  function makeWaves(H, dirToRad) {
+    const lens = [26, 15, 9.5, 5.8], fr = [0.55, 0.30, 0.20, 0.14];
+    const off = [0, 0.28, -0.45, 0.8], ph = [0.3, 2.1, 4.0, 5.2];
+    const sum = fr.reduce((a, b) => a + b, 0);
+    const amp = (H / 2) / sum;
+    return lens.map((Lw, i) => {
+      const th = dirToRad + off[i], k = 2 * Math.PI / Lw;
+      return { dx: Math.sin(th), dz: -Math.cos(th), k, w: Math.sqrt(G * k), A: amp * fr[i], ph: ph[i] };
+    });
+  }
+  /* h = hauteur, gx/gz = pente, vy = vitesse verticale de la surface, ox/oz = vitesse orbitale horizontale */
+  function waveAt(waves, x, z, t, o) {
+    let h = 0, gx = 0, gz = 0, vy = 0, ox = 0, oz = 0;
+    for (let i = 0; i < waves.length; i++) {
+      const w = waves[i];
+      const p = w.k * (w.dx * x + w.dz * z) - w.w * t + w.ph;
+      const s = Math.sin(p), c = Math.cos(p);
+      h += w.A * s;
+      const g = w.A * w.k * c;
+      gx += g * w.dx; gz += g * w.dz;
+      vy += -w.A * w.w * c;
+      ox += w.A * w.w * s * w.dx; oz += w.A * w.w * s * w.dz;
+    }
+    o.h = h; o.gx = gx; o.gz = gz; o.vy = vy; o.ox = ox; o.oz = oz;
+    return o;
+  }
+
+  /* Couple de rappel dû à la flottabilité (N·m), a >= 0, positif = ramène vers 0.
+   * - coque au vent qui se soulève à partir de ~8° ; le rappel est alors celui de la coque sous le vent,
+   * - voile qui se noie vers 55-60° (point de non-retour), couché stable vers 88°,
+   * - retourné ("turtle") : stable à 180°. */
+  function rBuoy(a, W, hb, turtle) {
+    const HALF = Math.PI / 2, A0 = 1.53, KF = 6000, PHL = 0.14;
+    let hull, tsf = 0;
+    if (a <= HALF) {
+      hull = W * hb * Math.cos(a) * Math.min(1, a / PHL);
+      const ramp = clamp((a - 0.9) / 0.2, 0, 1);
+      tsf = KF * (a - A0) * ramp;
+      if (turtle && a > A0) { tsf = 0; hull = -0.08 * W * hb; }
+    } else if (turtle) {
+      hull = -0.6 * W * hb * Math.sin(2 * (a - HALF));
+    } else {
+      hull = W * hb * Math.cos(a);
+      tsf = KF * (a - A0);
+    }
+    return hull + tsf;
+  }
+
+  const SPI = {
+    reach: { S: 0.95, a0: 24, w: 16, CL: 1.20, CD0: 0.10, CDd: 0.30, dropA: 120, drop: 0.75 },
+    run:   { S: 1.30, a0: 52, w: 20, CL: 1.00, CD0: 0.12, CDd: 0.85, dropA: 999, drop: 0 }
+  };
+  const SH_MIN = 6 * D2R, SH_MAX = 95 * D2R;
+
+  class Sim {
+    constructor(boatId, cfg) {
+      this.boat = BOATS[boatId] || BOATS.hobie16;
+      this.cfg = Object.assign({ windKn: 14, windDir: 0, waveH: 0.8, mode: 'free', foils: false, seed: 7 }, cfg || {});
+      this.rand = rng(this.cfg.seed);
+      this.o = { h: 0, gx: 0, gz: 0, vy: 0, ox: 0, oz: 0 };
+      this.setConfig({});
+      this.reset();
+    }
+    setConfig(c) {
+      Object.assign(this.cfg, c);
+      this.waves = makeWaves(this.cfg.waveH, (this.cfg.windDir + 180) * D2R);
+    }
+    reset() {
+      const b = this.boat;
+      this.t = 0; this.x = 0; this.z = 0; this.psi = 90 * D2R; this.u = 3.0; this.v = 0; this.r = 0;
+      this.heel = 0; this.heelRate = 0; this.pitch = 0; this.pitchRate = 0; this.y = 0; this.vy = 0;
+      this.sheet = 35 * D2R; this.steer = 0; this.helm = 0; this.steerEff = 0; this.sailAngle = 0; this.af = 0;
+      this.cap = { mode: 'normal', turtle: false, progress: 0, t: 0 };
+      this.crew = b.crew.map((m, i) => ({
+        m, idx: i, y: -0.55 * b.B / 2, z: 0, h: 0.62, trap: 0, tgtSide: -1, delay: 0, zs: 0, crouch: 0, lean: 0, deep: 0, brace: 0,
+        state: 'boat', climb: 0, wx: 0, wy: 0, wz: 0, wvx: 0, wvy: 0, wvz: 0, splash: 0
+      }));
+      this.wind = { speed: this.cfg.windKn * KN, dirFrom: this.cfg.windDir * D2R, gust: 0, gustT: 8, gustStart: -99, gustDur: 9, gustAmp: 0 };
+      this.slam = 0; this.slamCool = 0; this.buryI = 0; this.surf = 0; this.dive = 0; this.buryCool = 0; this.surfCool = 0;
+      this.events = []; this.flags = {};
+      this.spiP = 0; this.spiFill = 0; this.awa = 0; this.aws = 0; this.alpha = 0; this.draft = 0.2; this.twist = 0.1; this.flutter = 0;
+      this.outOfBounds = false;
+      this.buoys = []; this.course = null;
+      this.setupCourse();
+    }
+    mass() {
+      let m = this.boat.mass;
+      for (const c of this.crew) if (c.state === 'boat') m += c.m;
+      return m;
+    }
+    setupCourse() {
+      const wf = this.cfg.windDir * D2R;
+      const w = [Math.sin(wf), -Math.cos(wf)];           // vecteur vers la source du vent
+      const c = [-w[1], w[0]];                           // travers (vers tribord quand on remonte au vent)
+      const P = (a, b) => [a * w[0] + b * c[0], a * w[1] + b * c[1]];
+      if (this.cfg.mode === 'course') {
+        const m1 = P(330, 0), m2 = P(200, 260), m3 = P(-20, 250), fin = P(0, 0);
+        this.buoys = [
+          { x: m1[0], z: m1[1], name: 'Bouée 1 (au vent)', col: 0xff7a00 },
+          { x: m2[0], z: m2[1], name: 'Bouée 2 (de travers)', col: 0xffd400 },
+          { x: m3[0], z: m3[1], name: 'Bouée 3 (sous le vent)', col: 0xff3d8b },
+          { x: fin[0], z: fin[1], name: 'Arrivée', col: 0x22c55e }
+        ];
+        this.course = { next: 0, finished: false, time: 0, t0: 0 };
+      } else {
+        this.buoys = [];
+        const R = 260;
+        for (let i = 0; i < 7; i++) {
+          const a = i / 7 * 2 * Math.PI + 0.4;
+          this.buoys.push({ x: Math.sin(a) * R * (0.8 + 0.5 * ((i * 37) % 5) / 5), z: -Math.cos(a) * R * (0.8 + 0.5 * ((i * 53) % 5) / 5), name: 'Bouée', col: i % 2 ? 0xff7a00 : 0xffd400 });
+        }
+        this.course = null;
+      }
+    }
+    _wind(dt) {
+      const W = this.wind, t = this.t, base = this.cfg.windKn * KN;
+      if (t > W.gustT) {
+        W.gustStart = t; W.gustDur = 5.2 + this.rand() * 3.8; W.gustAmp = (0.20 + this.rand() * 0.31) * (0.7 + base / (28 * KN) * 0.35);
+        W.gustT = t + 11 + this.rand() * 12;
+      }
+      const x = (t - W.gustStart) / W.gustDur;
+      const rise = clamp(x / 0.18, 0, 1), release = clamp((1 - x) / 0.42, 0, 1);
+      const gust = x >= 0 && x <= 1 ? W.gustAmp * rise * rise * (3 - 2 * rise) * release * release * (3 - 2 * release) : 0;
+      const flutter = 0.028 * Math.sin(t * 0.9) + 0.024 * Math.sin(t * 2.3 + 1);
+      W.speed = Math.max(0, base * (1 + 0.07 * Math.sin(t * 0.31) + flutter + gust));
+      W.gust = gust;
+      const shift = 4 * Math.sin(t * 0.11 + 1) + 6 * Math.sin(t * 0.037) + 2 * Math.sin(t * 0.23 + 2) + gust * 23;
+      W.dirFrom = this.cfg.windDir * D2R + shift * D2R;
+    }
+    /* ------------------------------------------------------------------ */
+    step(dt, inp) {
+      const b = this.boat, s = this, o = this.o;
+      s.t += dt; s.events.length = 0;
+      s._wind(dt);
+      const capN = s.cap.mode === 'normal';
+
+      // --- barre ---
+      const st = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+      if (st !== 0) s.steer = clamp(s.steer + st * 2.4 * dt, -1, 1);
+      else s.steer -= Math.sign(s.steer) * Math.min(Math.abs(s.steer), 3.2 * dt);
+
+      // --- cinématique et vent ---
+      const fx = Math.sin(s.psi), fz = -Math.cos(s.psi), sx = Math.cos(s.psi), sz = Math.sin(s.psi);
+      const wf = s.wind.dirFrom, ws = s.wind.speed;
+      const wvx = -Math.sin(wf) * ws, wvz = Math.cos(wf) * ws;
+      const bvx = s.u * fx + s.v * sx, bvz = s.u * fz + s.v * sz;
+      const awx = wvx - bvx, awz = wvz - bvz;
+      const awf = awx * fx + awz * fz, aws_ = awx * sx + awz * sz;
+      const AWS = Math.hypot(awf, aws_);
+      const awa = AWS > 0.05 ? Math.atan2(-aws_, -awf) : 0;
+      const absA = Math.abs(awa), side = awa >= 0 ? 1 : -1;
+      s.awa = awa; s.aws = AWS;
+      if (s.t < 0.02 && capN) {                       // au départ, l'équipage est déjà au vent
+        for (const c of s.crew) { c.tgtSide = side; c.y = side * 0.55 * b.B / 2; }
+      }
+
+      // --- réglage de la voile ---
+      let rate = 0;
+      if (inp.sheetIn) rate -= 0.55;
+      if (inp.sheetOut) rate += 0.55;
+      if (inp.dump) rate += 2.4;
+      s.sheet += rate * dt;
+      if (inp.auto) {
+        // trim optimal (incidence ~14°) ; la voile ne se choque seule qu'en urgence (gîte > 17°), jamais quand l'équipage sort au trapèze
+        const spill = clamp((Math.abs(s.heel) - 0.30) / 0.15, 0, 1) * 30 * D2R;
+        const opt = clamp(absA - 14 * D2R + spill, SH_MIN, SH_MAX);
+        s.sheet += clamp(opt - s.sheet, -0.9 * dt, 1.4 * dt);
+      }
+      if (inp.slow) { const lu = clamp(absA + 2 * D2R, SH_MIN, SH_MAX); s.sheet += clamp(lu - s.sheet, -0.9 * dt, 0.9 * dt); }
+      s.sheet = clamp(s.sheet, SH_MIN, SH_MAX);
+      const bT = Math.min(absA, s.sheet);
+      const tgtAngle = capN ? -side * bT : s.sailAngle;
+      s.sailAngle += clamp(tgtAngle - s.sailAngle, -7 * dt, 7 * dt);
+
+      // --- aérodynamique de la voile ---
+      const alpha = Math.max(0, absA - s.sheet), a = alpha / D2R;
+      let Cl = a <= 15 ? 0.1 * a : 1.5 * Math.cos(Math.PI / 2 * clamp((a - 15) / 75, 0, 1));
+      Cl *= clamp((absA - 18 * D2R) / (12 * D2R), 0, 1);               // trop près du vent : la voile ne porte plus (zone interdite)
+      const Cd = 0.15 + 0.13 * Cl * Cl + 1.1 * Math.pow(Math.sin(alpha), 2);
+      s.alpha = alpha;
+      s.draft = clamp(alpha / (15 * D2R), 0, 1) * 0.85 + 0.12;
+      s.twist = 0.06 + 0.28 * clamp((s.sheet - 10 * D2R) / (60 * D2R), 0, 1);
+      s.flutter = capN ? clamp(1 - alpha / (5 * D2R), 0, 1) * clamp(AWS / 4, 0, 1) : 0.6;
+      const cf = capN ? Math.max(0, Math.cos(s.heel)) : 0;
+      const qS = 0.5 * RHO_A * AWS * AWS * b.S * cf;
+      let Fs_f = 0, Fs_s = 0;
+      if (AWS > 0.05 && qS > 0) {
+        // calcul dans le repère bateau (f = avant, s = tribord)
+        const df = awf / AWS, ds = aws_ / AWS;
+        const cF = -Math.cos(bT), cS = -side * Math.sin(bT);          // direction de la corde (de l'avant de la voile vers la chute)
+        let nF = -cS, nS = cF;                                         // normale à la voile, orientée dans le sens du flux (face sous le vent)
+        if (nF * df + nS * ds < 0) { nF = -nF; nS = -nS; }
+        let pF = -ds, pS = df;                                         // perpendiculaire au vent apparent, du côté de la face sous le vent
+        if (pF * nF + pS * nS < 0) { pF = -pF; pS = -pS; }
+        Fs_f = qS * (Cl * pF + Cd * df); Fs_s = qS * (Cl * pS + Cd * ds);
+      }
+      // --- spi (gennaker asymétrique) : deux versions au choix, envoi 4 s, rangement 3 s ---
+      //   reach : spi de travers / largue, plus plat, porte dès ~50° mais s'étouffe derrière le bateau (> ~130°)
+      //   run   : spi de portant, plus grand et rond, porte de ~70° jusqu'au vent arrière, faseye au travers
+      const sp = SPI[s.cfg.spiType] || SPI.run;
+      s.spiP = capN ? clamp(s.spiP + clamp((inp.spiUp ? 1 : 0) - s.spiP, -dt / 3, dt / 4), 0, 1) : Math.max(0, s.spiP - dt / 1.5);
+      const fillA = clamp((absA - sp.a0 * D2R) / (sp.w * D2R), 0, 1);
+      s.spiFill += (fillA - s.spiFill) * Math.min(1, dt * 2.5);
+      if (s.spiP > 0.02 && AWS > 0.05 && capN) {
+        const Sg = b.S * sp.S * s.spiP, qG = 0.5 * RHO_A * AWS * AWS * Sg * cf;
+        const dF = awf / AWS, dS = aws_ / AWS;
+        let lF = -dS, lS = dF; if (lF < 0) { lF = -lF; lS = -lS; }                  // portance orientée vers l'avant
+        const eff = 1 - sp.drop * clamp((absA - sp.dropA * D2R) / (35 * D2R), 0, 1);
+        const CLg = sp.CL * s.spiFill * eff, CDg = sp.CD0 + 0.28 * s.spiFill + sp.CDd * clamp((absA - 125 * D2R) / (55 * D2R), 0, 1) * s.spiFill;
+        Fs_f += qG * (CLg * lF + CDg * dF); Fs_s += qG * (CLg * lS + CDg * dS);
+      }
+
+      // --- houle locale ---
+      waveAt(s.waves, s.x, s.z, s.t, o);
+      const slopeF = o.gx * fx + o.gz * fz, slopeS = o.gx * sx + o.gz * sz;
+
+      // --- hydrodynamique ---
+      const rvx = bvx - o.ox * 0.5, rvz = bvz - o.oz * 0.5;
+      const ur = rvx * fx + rvz * fz, vr = rvx * sx + rvz * sz;
+      const aur = Math.abs(ur);
+      const heelAbs = Math.abs(s.heel);
+      const flying = capN ? clamp((heelAbs - 0.09) / 0.10, 0, 1) : 0;
+      const thW = Math.atan(slopeF), rel = s.pitch - thW;
+      const foilMode = !!(s.cfg.foils && b.id === 'nacra15');
+      const bury = foilMode ? 0 : clamp(-rel - 0.14, 0, 0.8);
+      s.buryI = bury; s.buryCool -= dt;
+      if (!foilMode && bury > 0.22 && s.buryCool <= 0 && capN) { s.buryCool = 2.5; s.events.push({ type: 'bury', i: bury }); }
+      if (s.surf > 0.55 && s.surfCool <= 0 && capN) { s.surfCool = 6; s.events.push({ type: 'surf' }); } else s.surfCool -= dt;
+      let kH = b.kHull * (1 + 0.25 * Math.abs(s.steer) + (inp.slow ? 1.5 : 0)) * (1 - 0.22 * flying) * (1 + 8 * bury);
+      const foilLift = s.cfg.foils && b.id === 'nacra15' ? clamp((aur - 3.6) / 3.8, 0, 0.55) : 0;
+      kH *= 1 - 0.12 * foilLift;
+      if (!capN) kH *= 6;
+      let R = -sgn(ur) * (kH * ur * ur + b.kWave * Math.pow(Math.max(0, aur - 3.6), 3));
+      let Flat = -(b.kLat * aur * vr * (1 - 0.2 * flying)) - 450 * vr * Math.abs(vr) - 80 * vr;
+      if (!capN) { Flat -= 3000 * vr; R -= 1500 * ur; }
+
+      const M = s.mass(), mu = M * 1.12, mv = M * 2.0;
+      // --- surf : sur la face avant d'une vague, le bateau est entraîné vers l'aval tant que sa vitesse reste proche de celle de la vague ---
+      let aSF = 0, aSS = 0, surfI = 0, dive = 0;
+      if (capN) for (let wi = 0; wi < 2; wi++) {
+        const w = s.waves[wi], cw = w.w / w.k, vd = bvx * w.dx + bvz * w.dz;
+        const ph = w.k * (w.dx * s.x + w.dz * s.z) - w.w * s.t + w.ph, dhd = w.A * w.k * Math.cos(ph);   // pente dans le sens de propagation
+        if (vd > 0.5 && dhd < 0) {
+          const lock = clamp(1 - Math.abs(vd - cw) / (0.40 * cw), 0, 1), a = -G * dhd * 2.2 * lock * (wi ? 1 : 0.8);
+          aSF += a * (w.dx * fx + w.dz * fz); aSS += a * (w.dx * sx + w.dz * sz);
+          const si = lock * clamp(-dhd / 0.07, 0, 1); surfI = Math.max(surfI, si);
+          dive = Math.max(dive, clamp((vd - 0.95 * cw) / (0.35 * cw), 0, 1) * si);                  // plus vite que la vague : l'étrave plonge dans le creux
+        }
+      }
+      s.surf += (surfI - s.surf) * Math.min(1, dt * 2.5);
+      if (foilMode) { s.dive = 0; dive = 0; } else s.dive += (dive - s.dive) * Math.min(1, dt * 3);
+      s.af = (Fs_f + R) / mu - G * slopeF * 0.45 + aSF;
+      const aV = (Fs_s + Flat) / mv - G * slopeS * 0.25 + aSS * 0.5;
+
+      // --- équipage (réaction automatique) ---
+      const W_ = M * G;
+      const M_wind = Fs_s * b.ceH - Flat * 0.35;
+      const load = Math.abs(M_wind) / (W_ * b.B / 2);
+      const hl = capN ? -s.heel * (awa >= 0 ? 1 : -1) : 0;
+      if (capN) s._crew(dt, awa, load, hl, inp.bias || 0, clamp(-rel - 0.10, 0, 0.5), ws / KN, s.surf, s.slam, s.dive);
+      s._crewWater(dt, bvx, bvz, wvx, wvz);
+
+      // --- lacet ---
+      const lever = 0.12 + 1.1 * Math.sin(Math.min(heelAbs, 1.2));
+      let Mz = -Fs_s * lever;
+      // le barreur contre l'auto-lof dû à la gîte : barre dosée pour annuler le couple de la voile (progressif, limité)
+      const Kr = b.rudK * (ur * Math.abs(ur) * Math.cos(Math.min(heelAbs, 1.2)) + 3);
+      const helmT = capN && Kr > 25 ? clamp(-Mz / Kr, -0.85, 0.85) : 0;
+      s.helm += clamp(helmT - s.helm, -1.6 * dt, 1.6 * dt);
+      s.steerEff = clamp(s.steer + s.helm, -1, 1);
+      if (capN) Mz += Kr * s.steerEff;
+      const Iz = M * Math.pow(0.30 * b.L, 2) * 1.5;
+      const Dz = (2400 + 380 * aur) * (capN ? 1 : 5);
+      s.r += (Mz - Dz * s.r) / Iz * dt;
+      s.psi += s.r * dt;
+      if (s.psi > 2 * Math.PI) s.psi -= 2 * Math.PI; else if (s.psi < 0) s.psi += 2 * Math.PI;
+
+      // --- roulis ---
+      let Mc = 0;
+      for (const c of s.crew) if (c.state === 'boat') Mc += c.m * G * (c.y * Math.cos(s.heel) + c.h * Math.sin(s.heel));
+      const Mb = b.mass * G * 0.55 * Math.sin(s.heel);
+      const phiW = Math.atan(-slopeS) * 0.85;
+      const wfac = clamp((1.2 - heelAbs) / 0.6, 0, 1);
+      const phiRel = wrapPi(s.heel - phiW * wfac);
+      const Tb = sgn(phiRel) * rBuoy(Math.abs(phiRel), W_, b.B / 2, s.cap.turtle);
+      const Ixx = M * Math.pow(0.5 * b.B, 2) * 1.9;
+      const cRoll = 3200 * (M / 300) * (capN ? 1 : 1.5);
+      let righting = false;
+      if (!capN) {
+        s.cap.t += dt;
+        if (inp.righting) {
+          righting = true;
+          const aH = Math.abs(s.heel), sH = sgn(s.heel);
+          let rt = aH > 1.75 ? 0.30 : 0.38;
+          rt *= clamp(1.3 - ws / (28 * KN), 0.45, 1);
+          s.heel -= sH * rt * dt; s.heelRate = 0;
+          if (aH <= 1.75) s.cap.turtle = false;
+          s.cap.progress = 1 - Math.abs(s.heel) / Math.PI;
+        }
+      }
+      if (!righting) {
+        const acc = (M_wind + Mc + Mb - Tb - cRoll * s.heelRate) / Ixx;
+        s.heelRate = clamp(s.heelRate + acc * dt, -6, 6);
+        s.heel = wrapPi(s.heel + s.heelRate * dt);
+      }
+
+      // --- tangage ---
+      const Kp0 = 52000 * Math.pow(b.L / 5, 2) * (M / 300);
+      const Kp = Kp0 * (1 + 6 * clamp(-rel - 0.12, 0, 1));
+      let zSum = 0;
+      for (const c of s.crew) if (c.state === 'boat') zSum += c.m * G * c.z;
+      const Mp = -Kp * rel - Fs_f * b.ceH + zSum + M * s.af * 1.0 - 5500 * (M / 300) * s.pitchRate - s.dive * 60000 * (M / 300) * (1 + 0.5 * clamp((s.u - 6) / 6, 0, 1)) - (foilMode ? 0.12 : 1) * clamp((slopeF - 0.035) / 0.07, 0, 1) * clamp((s.u - 4.5) / 3.5, 0, 1) * 52000 * (M / 300);   // effet d'enfournement fortement neutralisé avec les foils
+      const Iyy = M * Math.pow(0.28 * b.L, 2) * 1.8;
+      s.pitchRate = clamp(s.pitchRate + Mp / Iyy * dt, -4, 4);
+      s.pitch = clamp(s.pitch + s.pitchRate * dt, -1.3, 1.0);
+
+      // --- pilonnement + impacts ---
+      const Kh = 25000 * (b.L / 5), Ch = 2600, mh = M * 1.6;
+      const relVy = o.vy - s.vy;
+      s.vy += (Kh * (o.h + foilLift - s.y) + Ch * relVy) / mh * dt;
+      s.y += s.vy * dt;
+      s.slamCool -= dt;
+      const slamI = clamp((relVy - 0.9) / 2.0, 0, 1) * clamp(aur / 2.5, 0, 1) + clamp((-s.pitchRate - 0.9) / 1.5, 0, 1);
+      if (slamI > 0.2 && s.slamCool <= 0 && capN) {
+        s.slamCool = 0.3; s.slam = Math.min(1, slamI);
+        s.u -= s.u * 0.045 * s.slam;
+        s.pitchRate -= 0.35 * s.slam;
+        s.events.push({ type: 'slam', i: s.slam });
+      } else s.slam = Math.max(0, s.slam - dt * 2);
+
+      // --- intégration des vitesses et du déplacement ---
+      s.u += (s.af + s.v * s.r) * dt;
+      s.v += (aV - s.u * s.r) * dt;
+      if (!capN) {
+        const uW = wvx * fx + wvz * fz, vW = wvx * sx + wvz * sz;
+        s.u += (uW * 0.30 - s.u) * dt * 0.35;
+        s.v += (vW * 0.30 - s.v) * dt * 0.35;
+      }
+      s.x += (s.u * fx + s.v * sx) * dt;
+      s.z += (s.u * fz + s.v * sz) * dt;
+
+      // --- chavirage ---
+      if (capN) {
+        if (heelAbs > 1.25) s._capsize('side', ws / KN, fx, fz, sx, sz);
+        else if (s.pitch < -0.8 && ur > 2.5) s._capsize('pitch', ws / KN, fx, fz, sx, sz);
+      } else if (Math.abs(s.heel) < 0.42 && righting) {
+        s.cap.mode = 'normal'; s.cap.turtle = false; s.cap.progress = 0;
+        for (const c of s.crew) if (c.state === 'water') { c.state = 'boat'; c.climb = 1; c.y = (c.tgtSide || -1) * 2.3; c.trap = 0; c.zs = 0; }
+        s.events.push({ type: 'righted' });
+      }
+      for (const c of s.crew) if (c.climb > 0) c.climb = Math.max(0, c.climb - dt / 1.2);
+
+      // --- limites de la zone et bouées ---
+      const dist = Math.hypot(s.x, s.z);
+      s.outOfBounds = dist > 1250;
+      if (dist > 1500) { s.x *= 1500 / dist; s.z *= 1500 / dist; s.u *= 0.9; s.events.push({ type: 'limit' }); }
+      for (const bu of s.buoys) {
+        const dx = s.x - bu.x, dz = s.z - bu.z, d = Math.hypot(dx, dz);
+        if (d < 2.8 && d > 0.001) {
+          s.x = bu.x + dx / d * 2.8; s.z = bu.z + dz / d * 2.8;
+          s.u *= 0.6; s.v *= 0.6; s.events.push({ type: 'bump' });
+        }
+      }
+      if (s.course && !s.course.finished) {
+        const m = s.buoys[s.course.next];
+        if (m && Math.hypot(s.x - m.x, s.z - m.z) < 16) {
+          s.course.next++; s.events.push({ type: 'mark', n: s.course.next });
+          if (s.course.next >= s.buoys.length) { s.course.finished = true; s.course.time = s.t; }
+        }
+      }
+
+      // --- indicateurs d'état ---
+      s.flags = {
+        flying, bury, luff: capN && alpha < 1.5 * D2R && AWS > 2, stall: capN && alpha > 19 * D2R && absA < 100 * D2R,
+        spi: s.spiP, spiFill: s.spiFill, surf: s.surf, speed: Math.hypot(bvx, bvz), twa: wrapPi(wf - s.psi), load
+      };
+    }
+    /* ----- équipage ----- */
+    _crew(dt, awa, load, hl, bias, bowDown, wsKn, surf, slam, dive) {
+      const b = this.boat, hb = b.B / 2, L = b.L, wsd = awa >= 0 ? 1 : -1;
+      for (const c of this.crew) {
+        if (c.state !== 'boat') continue;
+        if (Math.abs(awa) > 0.12 && wsd !== c.tgtSide) {
+          c.delay += dt;
+          if (c.delay > (c.idx ? 0.55 : 0.3)) { c.tgtSide = wsd; c.delay = 0; }
+        } else c.delay = 0;
+        const crossing = c.y * c.tgtSide < 0.05;
+        let tt = clamp((load - 0.55) / 0.35, 0, 1) + clamp((hl - 0.10) / 0.15, 0, 0.6) + bias;
+        if (Math.abs(awa) > 2.1 || wsKn < 5) tt = 0;
+        // L'équipier 1 sort en premier; le barreur ne suit que si la gîte sous le vent devient forte.
+        if (c.idx === 0) {
+          const secondOut = clamp((hl - 0.34) / 0.26, 0, 1);
+          tt *= secondOut;
+        }
+        tt = clamp(tt, 0, 1);
+        if (crossing) tt = 0;
+        const rt = crossing ? 4 : (tt > c.trap ? 1.2 : 2.2);
+        c.trap += clamp(tt - c.trap, -rt * dt, rt * dt);
+        // plus le bateau est chargé (vent, rafale, gîte), plus l'équipier se laisse descendre bas et loin au trapèze
+        const dT = (Math.abs(awa) > 2.1 || wsKn < 5 || crossing) ? 0 : clamp((load - 0.85) / 0.45, 0, 1) * 0.8 + clamp((hl - 0.14) / 0.2, 0, 1) * 0.5;
+        c.deep += clamp(clamp(dT, 0, 1) - c.deep, -0.7 * dt, 1.0 * dt);
+        const yT = c.tgtSide * (0.55 * hb + c.trap * (0.45 * hb + 0.8 + 0.75 * c.deep));
+        const sp = crossing ? 2.4 : 1.5;
+        c.y += clamp(yT - c.y, -sp * dt, sp * dt);
+        const seatZ = c.idx === 0 ? 0.20 * L : -0.02 * L, trapZ = c.idx === 0 ? 0.0 : -0.16 * L;
+        let zs = clamp((wsKn - 14) / 12, 0, 1) * (Math.abs(awa) > 1.9 ? 0.16 * L : 0.05 * L) + bowDown * L * 1.2 + surf * 0.12 * L + dive * 0.14 * L;    // vers l'arrière : vent fort, surf, enfournement
+        zs = Math.min(zs, 0.34 * L);
+        const zr = bowDown > 0.04 || dive > 0.2 ? 1.8 : 0.8;
+        c.zs += clamp(zs - c.zs, -0.8 * dt, zr * dt);
+        c.z = lerp(seatZ, trapZ, c.trap) + c.zs;
+        c.crouch += clamp((crossing ? 1 : 0) - c.crouch, -5 * dt, 5 * dt);
+        c.h = lerp(0.62, 0.49, c.trap) - 0.18 * c.crouch - 0.10 * c.deep;
+        c.brace += clamp(slam - c.brace, -3 * dt, 8 * dt);
+        c.lean += clamp(clamp(-this.af * 0.08, -0.5, 0.5) - c.lean, -2 * dt, 2 * dt);
+      }
+    }
+    _crewWater(dt, bvx, bvz, wvx, wvz) {
+      const s = this, o = this.o;
+      for (const c of s.crew) {
+        if (c.state !== 'water') continue;
+        c.wvy -= G * dt;
+        c.wx += c.wvx * dt; c.wy += c.wvy * dt; c.wz += c.wvz * dt;
+        waveAt(s.waves, c.wx, c.wz, s.t, o);
+        const surf = o.h + 0.12;
+        if (c.wy < surf) {
+          if (c.wvy < -1.5) { c.splash = Math.min(1, -c.wvy / 6); s.events.push({ type: 'splash', x: c.wx, z: c.wz, i: c.splash }); }
+          c.wy = surf; c.wvy = 0;
+        }
+        const k = Math.exp(-1.3 * dt);
+        if (c.wy <= surf + 0.02) { c.wvx *= k; c.wvz *= k; }
+        c.wvx += (-c.wvx + wvx * 0.04) * dt * 0.2; c.wvz += (-c.wvz + wvz * 0.04) * dt * 0.2;
+        const dx = s.x - c.wx, dz = s.z - c.wz, d = Math.hypot(dx, dz);
+        if (d > 4.5) { c.wvx += dx / d * 0.8 * dt; c.wvz += dz / d * 0.8 * dt; }
+      }
+    }
+    _capsize(kind, wsKn, fx, fz, sx, sz) {
+      const s = this, b = this.boat;
+      s.cap.mode = kind === 'pitch' ? 'pitch' : 'side'; s.cap.t = 0; s.cap.progress = 0;
+      const p = clamp(0.10 + (wsKn - 10) / 22 + Math.abs(s.heelRate) / 5 + s.cfg.waveH * 0.12, 0.05, 0.95);
+      s.cap.turtle = kind === 'pitch' ? true : s.rand() < p;
+      if (kind === 'pitch') { s.heelRate = (s.rand() < 0.5 ? -1 : 1) * 3.0; s.heel = sgn(s.heelRate) * 0.9; s.pitch = -0.3; s.u *= 0.3; }
+      const hs = s.heel >= 0 ? 1 : -1;
+      for (const c of s.crew) {
+        if (c.state !== 'boat') continue;
+        c.state = 'water';
+        const lx = -c.z, ly = c.y;
+        c.wx = s.x + fx * lx + sx * ly; c.wz = s.z + fz * lx + sz * ly;
+        waveAt(s.waves, c.wx, c.wz, s.t, s.o);
+        c.wy = s.o.h + 0.8 + c.h * Math.cos(Math.min(Math.abs(s.heel), 1.2));
+        const bvx = s.u * fx + s.v * sx, bvz = s.u * fz + s.v * sz;
+        const throwF = kind === 'pitch' ? 4.5 : 1.5;
+        c.wvx = bvx + sx * hs * 3.0 + fx * throwF + (s.rand() - 0.5) * 1.2;
+        c.wvz = bvz + sz * hs * 3.0 + fz * throwF + (s.rand() - 0.5) * 1.2;
+        c.wvy = 2.5 + s.rand() * 1.5;
+        c.tgtSide = hs > 0 ? -1 : 1;
+      }
+      s.events.push({ type: 'capsize', kind, turtle: s.cap.turtle });
+    }
+    /* ----- libellés pour l'interface ----- */
+    statusText() {
+      const c = this.cap, f = this.flags;
+      if (c.mode === 'pitch') return 'Chavirage par l\'avant';
+      if (c.mode !== 'normal') return Math.abs(this.heel) > 2.0 ? 'Chaviré à l\'envers' : 'Dessalage — bateau couché';
+      if (f.bury > 0.35 && !(this.cfg.foils && this.boat.id === 'nacra15')) return 'Enfournement';
+      if (f.surf > 0.5) return 'Surf sur la vague';
+      if (f.flying > 0.5) return 'Coque levée';
+      if (f.stall) return 'Voile décrochée (trop bordée)';
+      if (f.luff) return 'Voile qui faseye';
+      return 'Navigation';
+    }
+    pointOfSail() {
+      const a = Math.abs(wrapPi(this.psi - this.wind.dirFrom));   // angle entre cap et provenance du vent (TWA)
+      const d = a / D2R;
+      if (d < 30) return 'Dans le vent (zone interdite)';
+      if (d < 50) return 'Près';
+      if (d < 70) return 'Bon plein';
+      if (d < 100) return 'Travers';
+      if (d < 135) return 'Largue';
+      if (d < 165) return 'Grand largue';
+      return 'Vent arrière';
+    }
+    tackName() { return wrapPi(this.wind.dirFrom - this.psi) > 0 ? 'amures tribord' : 'amures bâbord'; }
+  }
+
+  const API = { Sim, BOATS, makeWaves, waveAt, rBuoy, KN, D2R, clamp, wrapPi, lerp, sgn };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API; else global.CatPhysics = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* env.js — Mer, ciel, nuages, côte, bouées, particules (Three.js r128). Dépend de CatPhysics. */
+(function (global) {
+  'use strict';
+  const P = global.CatPhysics, THREE = global.THREE;
+  const WEATHER = {
+    sun:   { name: 'Ensoleillé', horizon: [0.74, 0.85, 0.93], zenith: [0.09, 0.33, 0.80], sun: 1.0, clouds: 16, cloudCol: 0xffffff, shallow: [0.03, 0.62, 0.66], deep: [0.01, 0.20, 0.45] },
+    cloudy:{ name: 'Nuageux',    horizon: [0.70, 0.77, 0.84], zenith: [0.30, 0.46, 0.70], sun: 0.55, clouds: 42, cloudCol: 0xeef2f6, shallow: [0.05, 0.48, 0.56], deep: [0.02, 0.19, 0.38] },
+    grey:  { name: 'Couvert',    horizon: [0.57, 0.61, 0.65], zenith: [0.38, 0.43, 0.49], sun: 0.15, clouds: 70, cloudCol: 0xaab0b8, shallow: [0.07, 0.38, 0.45], deep: [0.03, 0.15, 0.27] }
+  };
+  const SPOTS = {
+    riviera: { name: 'Côte d’Azur', horizon: [0.74, 0.85, 0.93], zenith: [0.09, 0.33, 0.80], shallow: [0.04, 0.52, 0.59], deep: [0.015, 0.17, 0.39], coast: 0x78a994, clarity: 0.12 },
+    moorea:  { name: 'Lagon de Moorea', horizon: [0.56, 0.84, 0.94], zenith: [0.04, 0.40, 0.77], shallow: [0.05, 0.78, 0.70], deep: [0.02, 0.27, 0.47], coast: 0x8dc77e, clarity: 1 },
+    dolphin: { name: 'Baie des dauphins', horizon: [0.62, 0.86, 0.94], zenith: [0.06, 0.39, 0.76], shallow: [0.08, 0.72, 0.76], deep: [0.015, 0.24, 0.47], coast: 0x82bd78, clarity: 0.88 },
+    brest: { name: 'Rade de Brest', horizon: [0.60, 0.72, 0.82], zenith: [0.08, 0.23, 0.48], shallow: [0.12, 0.39, 0.47], deep: [0.025, 0.12, 0.24], coast: 0x668b78, clarity: 0.42 },
+    greece: { name: 'Mer Égée', horizon: [0.72, 0.84, 0.92], zenith: [0.08, 0.34, 0.72], shallow: [0.05, 0.62, 0.70], deep: [0.015, 0.18, 0.38], coast: 0xc7b58b, clarity: 0.78 }
+  };
+
+  /* ---------------- Mer ---------------- */
+  const SEA_VS = `
+    uniform float uT; uniform vec2 uCenter;
+    uniform vec2 uWd[4]; uniform float uWk[4]; uniform float uWw[4]; uniform float uWA[4]; uniform float uWph[4];
+    varying vec3 vW; varying vec2 vG; varying float vH;
+    void main(){
+      vec2 xz = position.xz + uCenter;
+      float h = 0.0; vec2 g = vec2(0.0);
+      for(int i=0;i<4;i++){
+        float p = uWk[i]*dot(uWd[i], xz) - uWw[i]*uT + uWph[i];
+        h += uWA[i]*sin(p);
+        g += uWA[i]*uWk[i]*cos(p)*uWd[i];
+      }
+      vW = vec3(xz.x, h, xz.y); vG = g; vH = h;
+      gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0);
+    }`;
+  const SEA_FS = `
+    precision highp float;
+    uniform float uT, uAmp, uBright, uFogK, uSunK, uClarity, uNight, uSpeed; uniform vec2 uSeaDir; uniform vec3 uSun, uHorizon, uZenith, uShallow, uDeep;
+    varying vec3 vW; varying vec2 vG; varying float vH;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+      return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+    vec3 skyCol(vec3 d){
+      float t = clamp(d.y, 0.0, 1.0);
+      vec3 c = mix(uHorizon, uZenith, pow(t, 0.55));
+      float s = max(dot(d, uSun), 0.0);
+      c += vec3(1.0, 0.92, 0.75) * (pow(s, 8.0) * 0.20 + pow(s, 600.0) * 3.0) * uSunK;
+      return c;
+    }
+    void main(){
+      vec3 V = cameraPosition - vW; float dist = length(V); V /= dist;
+      float fade = clamp(1.0 - dist / 260.0, 0.0, 1.0);
+      float fast = smoothstep(20.0, 24.0, uSpeed);
+      vec2 windDir = normalize(uSeaDir + vec2(0.0001, 0.0001));
+      vec2 crossDir = vec2(-windDir.y, windDir.x);
+      vec2 rip = vec2(sin(vW.x*1.9 + uT*1.3 + vW.z*0.7), cos(vW.z*2.3 - uT*1.1 + vW.x*0.5)) * 0.045
+               + vec2(sin(vW.x*5.5 + uT*1.7)*cos(vW.z*3.7-uT*1.1), cos(vW.x*4.2-uT*1.3)*sin(vW.z*5.4+uT*1.4)) * 0.028
+               + (vec2(vnoise(vW.xz*3.1 + uT*0.4), vnoise(vW.xz*3.1 - uT*0.3 + 17.0)) - 0.5) * 0.10;
+      float chopScale = 3.2 + fast * 5.4;
+      vec2 chopUV = vW.xz * vec2(chopScale, chopScale * 0.38) + windDir * (uT * (1.8 + fast * 3.0));
+      float chopA = vnoise(chopUV);
+      float chopB = vnoise(chopUV * 1.83 + crossDir * 9.7 + uT * 0.7);
+      float chopC = vnoise(chopUV * 3.35 - windDir * (uT * 1.3) + 23.4);
+      float chopHeight = chopA * 0.52 + chopB * 0.31 + chopC * 0.17;
+      float chopDx = vnoise(chopUV + vec2(0.10, 0.0)) - vnoise(chopUV - vec2(0.10, 0.0));
+      float chopDz = vnoise(chopUV + vec2(0.0, 0.10)) - vnoise(chopUV - vec2(0.0, 0.10));
+      rip += vec2(chopDx, chopDz) * (0.025 + fast * 0.22);
+      vec3 N = normalize(vec3(-vG.x - rip.x*fade, 1.0, -vG.y - rip.y*fade));
+      float ndv = max(dot(N, V), 0.0);
+      float fres = 0.02 + 0.98 * pow(1.0 - ndv, 5.0);
+      vec3 R = reflect(-V, N); R.y = abs(R.y);
+      vec3 refl = skyCol(R);
+      float hn = clamp(vH / max(uAmp, 0.05) * 0.5 + 0.5, 0.0, 1.0);
+      vec3 body = mix(uShallow, uDeep, smoothstep(0.0, 900.0, dist) * 0.85 + (1.0 - ndv) * 0.25);
+      body += uShallow * 0.45 * smoothstep(0.55, 1.0, hn);
+      vec3 col = mix(body, refl, fres);
+      float sunGlint = pow(max(dot(reflect(-uSun, N), V), 0.0), 150.0);
+      float glintNoise = 0.55 + 0.45 * vnoise(vW.xz * 0.75 + uT * 0.08);
+      col += vec3(1.0, 0.91, 0.72) * sunGlint * glintNoise * uSunK * (1.0 - uNight) * 0.9;
+      float caustic = max(0.0, sin(vW.x*0.16 + sin(vW.z*0.11+uT*0.2)) * sin(vW.z*0.18-vW.x*0.08));
+      col += vec3(0.08, 0.30, 0.28) * caustic * uClarity * 0.12 * fade;
+      float crest = smoothstep(0.78, 1.0, hn + length(vG) * 0.7);
+      float fn = vnoise(vW.xz * 2.2 + uT * 0.25) * 0.65 + vnoise(vW.xz * 6.0 - uT * 0.4) * 0.35;
+      float foam = crest * smoothstep(0.35, 0.8, fn) * clamp(uAmp * 1.6, 0.0, 1.0) * fade;
+      float chopCrest = smoothstep(0.68, 0.88, chopHeight) * smoothstep(0.035, 0.18, abs(chopDx) + abs(chopDz));
+      foam = max(foam, chopCrest * fast * (0.12 + 0.42 * smoothstep(0.32, 0.72, hn)) * fade);
+      col = mix(col, col * vec3(0.78, 0.89, 0.94), fast * 0.24);
+      col = mix(col, vec3(0.95, 0.98, 1.0), foam * 0.85);
+      col *= uBright;
+      float fogF = 1.0 - exp(-pow(dist * uFogK, 1.6));
+      col = mix(col, uHorizon * uBright, clamp(fogF, 0.0, 1.0));
+      float waterAlpha = mix(1.0, 0.58, uClarity) + fres * 0.26;
+      gl_FragColor = vec4(col, clamp(waterAlpha, 0.55, 1.0));
+    }`;
+  const SKY_VS = `varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`;
+  const SKY_FS = `
+    uniform vec3 uSun, uHorizon, uZenith; uniform float uBright, uSunK, uNight; varying vec3 vD;
+    float skyHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      vec3 d = normalize(vD); float t = clamp(d.y, 0.0, 1.0);
+      vec3 c = mix(uHorizon, uZenith, pow(t, 0.55));
+      float s = max(dot(d, uSun), 0.0);
+      c += vec3(1.0, 0.92, 0.75) * (pow(s, 8.0) * 0.20 + pow(s, 600.0) * 3.0) * uSunK;
+      float stars = step(0.997, skyHash(floor(d.xz * 900.0))) * smoothstep(0.02, 0.22, d.y);
+      c += vec3(0.72, 0.82, 1.0) * stars * uNight * 0.9;
+      if (d.y < 0.0) c = uHorizon;
+      gl_FragColor = vec4(c * uBright, 1.0);
+    }`;
+
+  function cloudTexture() {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    for (let i = 0; i < 14; i++) {
+      const x = 28 + Math.random() * 72, y = 44 + Math.random() * 40, r = 16 + Math.random() * 22;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    }
+    const t = new THREE.CanvasTexture(c); return t;
+  }
+  function softDot() {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+  }
+
+  /* ---------------- Particules (écume, éclaboussures) ---------------- */
+  class Particles {
+    constructor(scene, n) {
+      this.n = n; this.cur = 0;
+      this.pos = new Float32Array(n * 3); this.sz = new Float32Array(n); this.al = new Float32Array(n);
+      this.vel = new Float32Array(n * 3); this.age = new Float32Array(n).fill(1e9); this.life = new Float32Array(n).fill(1);
+      this.s0 = new Float32Array(n); this.s1 = new Float32Array(n); this.a0 = new Float32Array(n); this.gr = new Float32Array(n); this.fol = new Uint8Array(n);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+      g.setAttribute('size', new THREE.BufferAttribute(this.sz, 1).setUsage(THREE.DynamicDrawUsage));
+      g.setAttribute('alpha', new THREE.BufferAttribute(this.al, 1).setUsage(THREE.DynamicDrawUsage));
+      this.geo = g;
+      this.mat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false,
+        uniforms: { uScale: { value: 600 }, uTint: { value: new THREE.Color(1, 1, 1) } },
+        vertexShader: `attribute float size; attribute float alpha; varying float vA; uniform float uScale;
+          void main(){ vA = alpha; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_PointSize = size * uScale / -mv.z; gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: `varying float vA; uniform vec3 uTint;
+          void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0; float a = smoothstep(1.0, 0.2, d) * vA; if (a < 0.01) discard; gl_FragColor = vec4(uTint, a); }`
+      });
+      this.pts = new THREE.Points(g, this.mat); this.pts.frustumCulled = false; scene.add(this.pts);
+    }
+    emit(x, y, z, vx, vy, vz, life, s0, s1, a0, grav, follow) {
+      const i = this.cur; this.cur = (this.cur + 1) % this.n;
+      this.pos[i * 3] = x; this.pos[i * 3 + 1] = y; this.pos[i * 3 + 2] = z;
+      this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
+      this.age[i] = 0; this.life[i] = life; this.s0[i] = s0; this.s1[i] = s1; this.a0[i] = a0; this.gr[i] = grav; this.fol[i] = follow ? 1 : 0;
+    }
+    update(dt, waves, t) {
+      const o = this._o || (this._o = {});
+      for (let i = 0; i < this.n; i++) {
+        if (this.age[i] >= this.life[i]) { this.al[i] = 0; continue; }
+        this.age[i] += dt;
+        const k = this.age[i] / this.life[i];
+        if (k >= 1) { this.al[i] = 0; continue; }
+        const j = i * 3;
+        this.vel[j + 1] -= this.gr[i] * dt;
+        this.pos[j] += this.vel[j] * dt; this.pos[j + 1] += this.vel[j + 1] * dt; this.pos[j + 2] += this.vel[j + 2] * dt;
+        if (this.fol[i]) { P.waveAt(waves, this.pos[j], this.pos[j + 2], t, o); this.pos[j + 1] = o.h + 0.04; this.vel[j] *= 1 - 1.2 * dt; this.vel[j + 2] *= 1 - 1.2 * dt; }
+        this.sz[i] = this.s0[i] + (this.s1[i] - this.s0[i]) * k;
+        this.al[i] = this.a0[i] * (1 - k) * (k < 0.08 ? k / 0.08 : 1);
+      }
+      this.geo.attributes.position.needsUpdate = true; this.geo.attributes.size.needsUpdate = true; this.geo.attributes.alpha.needsUpdate = true;
+    }
+  }
+
+  /* ---------------- Monde ---------------- */
+  class Env {
+    constructor(scene, renderer, opts) {
+      this.scene = scene; this.t = 0; this.opts = Object.assign({ mobile: false }, opts || {});
+      this.sunDir = new THREE.Vector3(-0.42, 0.62, -0.66).normalize();
+      this._buildSea(); this._buildSky(); this._buildLights(); this._buildClouds(); this._buildCoast(); this._buildIslands(); this._buildDetailedGeography(); this._buildMarineLife();
+      this.particles = new Particles(scene, this.opts.mobile ? 900 : 1800);
+      this.buoyMeshes = [];
+      this.setWeather('sun', 0.8, 0);
+    }
+    _buildSea() {
+      const seg = this.opts.mobile ? 150 : 230, R = 3500, pos = new Float32Array((seg + 1) * (seg + 1) * 3), idx = [];
+      for (let j = 0; j <= seg; j++) for (let i = 0; i <= seg; i++) {
+        const a = i / seg * 2 - 1, b = j / seg * 2 - 1, k = (j * (seg + 1) + i) * 3;
+        pos[k] = Math.sign(a) * Math.pow(Math.abs(a), 3) * R; pos[k + 1] = 0; pos[k + 2] = Math.sign(b) * Math.pow(Math.abs(b), 3) * R;
+      }
+      for (let j = 0; j < seg; j++) for (let i = 0; i < seg; i++) {
+        const a = j * (seg + 1) + i, b = a + 1, c = a + seg + 1, d = c + 1; idx.push(a, c, b, b, c, d);
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx);
+      const u = {
+        uT: { value: 0 }, uCenter: { value: new THREE.Vector2() }, uAmp: { value: 0.4 }, uBright: { value: 1 }, uFogK: { value: 1 / 1400 }, uSunK: { value: 1 }, uClarity: { value: 0.12 }, uNight: { value: 0 }, uSpeed: { value: 0 }, uSeaDir: { value: new THREE.Vector2(0, -1) },
+        uSun: { value: this.sunDir }, uHorizon: { value: new THREE.Vector3() }, uZenith: { value: new THREE.Vector3() },
+        uShallow: { value: new THREE.Vector3() }, uDeep: { value: new THREE.Vector3() },
+        uWd: { value: [0, 1, 2, 3].map(() => new THREE.Vector2()) }, uWk: { value: [0, 0, 0, 0] }, uWw: { value: [0, 0, 0, 0] }, uWA: { value: [0, 0, 0, 0] }, uWph: { value: [0, 0, 0, 0] }
+      };
+      this.seaU = u;
+      this.sea = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms: u, vertexShader: SEA_VS, fragmentShader: SEA_FS, side: THREE.DoubleSide, transparent: true, depthWrite: false }));
+      this.sea.frustumCulled = false; this.scene.add(this.sea);
+    }
+    _buildSky() {
+      this.skyU = { uSun: this.seaU.uSun, uHorizon: this.seaU.uHorizon, uZenith: this.seaU.uZenith, uBright: { value: 1 }, uSunK: { value: 1 }, uNight: this.seaU.uNight };
+      this.sky = new THREE.Mesh(new THREE.SphereGeometry(6000, 32, 16), new THREE.ShaderMaterial({ uniforms: this.skyU, vertexShader: SKY_VS, fragmentShader: SKY_FS, side: THREE.BackSide, depthWrite: false }));
+      this.sky.frustumCulled = false; this.sky.renderOrder = -10; this.scene.add(this.sky);
+    }
+    _buildLights() {
+      this.hemi = new THREE.HemisphereLight(0xbfd8ff, 0x2a6f86, 0.75); this.scene.add(this.hemi);
+      this.sunL = new THREE.DirectionalLight(0xfff1d6, 1.35);
+      this.sunL.castShadow = true; const m = this.opts.mobile ? 1024 : 2048; this.sunL.shadow.mapSize.set(m, m);
+      const sc = this.sunL.shadow.camera; sc.left = -9; sc.right = 9; sc.top = 9; sc.bottom = -9; sc.near = 1; sc.far = 60;
+      this.sunL.shadow.bias = -0.0006; this.sunL.shadow.normalBias = 0.02;
+      this.scene.add(this.sunL); this.scene.add(this.sunL.target);
+    }
+    _buildClouds() {
+      this.cloudTex = cloudTexture(); this.clouds = [];
+      const mat = c => new THREE.SpriteMaterial({ map: this.cloudTex, color: c, transparent: true, opacity: 0.9, depthWrite: false, fog: false });
+      this._cloudMat = mat;
+      for (let i = 0; i < 80; i++) {
+        const s = new THREE.Sprite(mat(0xffffff));
+        const a = Math.random() * Math.PI * 2, r = 600 + Math.random() * 3200;
+        s.position.set(Math.cos(a) * r, 260 + Math.random() * 420 + (3200 - r) * 0.03, Math.sin(a) * r);
+        const w = 380 + Math.random() * 700; s.scale.set(w, w * 0.38, 1); s.userData.base = s.position.clone();
+        s.renderOrder = -5; this.scene.add(s); this.clouds.push(s);
+      }
+    }
+    _buildCoast() {
+      const N = 90, pos = [], idx = [], col = [], R = 3300, a0 = 3.6, a1 = 4.9;
+      const rnd = P.Sim.prototype.constructor && ((s) => { let a = s; return () => { a = (a * 16807) % 2147483647; return a / 2147483647; }; })(5);
+      let h = 0; const hs = [];
+      for (let i = 0; i <= N; i++) { h += (rnd() - 0.5) * 0.9; h = Math.max(-2, Math.min(2, h)); hs.push(h); }
+      for (let i = 0; i <= N; i++) {
+        const a = a0 + (a1 - a0) * i / N, hh = 40 + 170 * Math.pow(Math.sin(Math.PI * i / N), 0.8) * (0.6 + 0.2 * (hs[i] + 2));
+        const x = Math.cos(a) * R, z = Math.sin(a) * R;
+        pos.push(x, -2, z, x * 1.04, hh, z * 1.04); col.push(0.12, 0.28, 0.28, 0.26, 0.38, 0.40);
+        if (i < N) { const b = i * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+      this.coastMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true });
+      this.coast = new THREE.Mesh(g, this.coastMat); this.scene.add(this.coast);
+    }
+    _buildIslands() {
+      this.islands = new THREE.Group();
+      const sand = new THREE.MeshStandardMaterial({ color: 0xe2c991, roughness: 1 });
+      const green = new THREE.MeshStandardMaterial({ color: 0x57966c, roughness: 1 });
+      [[1750, -2850, 1], [2400, -3250, 0.72], [1350, -3500, 0.58]].forEach(([x, z, k]) => {
+        const island = new THREE.Group();
+        const beach = new THREE.Mesh(new THREE.CylinderGeometry(115 * k, 140 * k, 22 * k, 24), sand);
+        beach.position.y = -2; beach.scale.z = 0.72; island.add(beach);
+        const hill = new THREE.Mesh(new THREE.ConeGeometry(118 * k, 190 * k, 9), green);
+        hill.position.y = 86 * k; hill.rotation.y = 0.3; island.add(hill);
+        island.position.set(x, 0, z); this.islands.add(island);
+      });
+      this.scene.add(this.islands);
+    }
+    _buildDetailedGeography() {
+      // Paysages 3D propres à chaque zone : reliefs, rivages, végétation et repères.
+      this.geoBySpot = {};
+      const mat = (color, roughness = 0.95) => new THREE.MeshStandardMaterial({ color, roughness });
+      const makeLand = (group, x, z, rx, rz, height, color, seed = 1) => {
+        const verts = [], indices = [], rings = 7, seg = 40;
+        for (let r = 0; r <= rings; r++) {
+          const t = r / rings;
+          for (let i = 0; i <= seg; i++) {
+            const a = i / seg * Math.PI * 2;
+            const irregular = 1 + 0.075 * Math.sin(a * 3 + seed) + 0.045 * Math.cos(a * 5 - seed * 0.7);
+            const rr = t * irregular;
+            const y = -3 + height * Math.pow(Math.max(0, 1 - t * t), 1.35) + 2.5 * Math.sin(a * 4 + seed) * t;
+            verts.push(x + Math.cos(a) * rx * rr, y, z + Math.sin(a) * rz * rr);
+          }
+        }
+        for (let r = 0; r < rings; r++) for (let i = 0; i < seg; i++) {
+          const a = r * (seg + 1) + i, b = a + seg + 1;
+          indices.push(a, b, a + 1, a + 1, b, b + 1);
+        }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); g.setIndex(indices); g.computeVertexNormals();
+        const mesh = new THREE.Mesh(g, mat(color)); mesh.castShadow = true; mesh.receiveShadow = true; group.add(mesh);
+        return mesh;
+      };
+      const addPeak = (group, x, z, radius, height, color, sides = 8) => {
+        const m = new THREE.Mesh(new THREE.ConeGeometry(radius, height, sides), mat(color));
+        m.position.set(x, height * 0.48, z); m.rotation.y = 0.25; m.castShadow = true; group.add(m); return m;
+      };
+      const addTree = (group, x, z, scale = 1, palm = false) => {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(2.2*scale, 3*scale, 24*scale, 7), mat(palm ? 0x795b38 : 0x6d5538));
+        trunk.position.set(x, 11*scale, z); trunk.castShadow = true; group.add(trunk);
+        if (palm) {
+          for (let i=0;i<7;i++) { const leaf = new THREE.Mesh(new THREE.ConeGeometry(3.2*scale, 25*scale, 5), mat(0x3d8050)); leaf.position.set(x+Math.cos(i*Math.PI*2/7)*9*scale, 24*scale, z+Math.sin(i*Math.PI*2/7)*9*scale); leaf.rotation.z = -Math.cos(i*Math.PI*2/7)*0.85; leaf.rotation.x = Math.sin(i*Math.PI*2/7)*0.85; group.add(leaf); }
+        } else { const crown = new THREE.Mesh(new THREE.SphereGeometry(12*scale, 8, 6), mat(0x47794b)); crown.position.set(x, 25*scale, z); group.add(crown); }
+      };
+      const addVillage = (group, x, z, count, scale, colors) => {
+        for (let i=0;i<count;i++) {
+          const w=12*scale*(0.8+(i%3)*0.15), h=10*scale+(i%4)*4*scale, d=10*scale;
+          const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(colors[i%colors.length]));
+          b.position.set(x+(i%5)*18*scale, h/2-1, z+Math.floor(i/5)*17*scale); b.castShadow=true; group.add(b);
+          const roof=new THREE.Mesh(new THREE.ConeGeometry(w*0.72, h*0.38, 4),mat(0x9a5942)); roof.position.set(b.position.x,h+1,b.position.z); roof.rotation.y=Math.PI/4; group.add(roof);
+        }
+      };
+      const addLighthouse = (group,x,z,height=90) => {
+        const tower=new THREE.Mesh(new THREE.CylinderGeometry(7,11,height,12),mat(0xe7e1d0)); tower.position.set(x,height/2,z); tower.castShadow=true; group.add(tower);
+        const cap=new THREE.Mesh(new THREE.CylinderGeometry(10,8,8,12),mat(0xc84c37)); cap.position.set(x,height+4,z); group.add(cap);
+        const lamp=new THREE.Mesh(new THREE.SphereGeometry(5,10,8),new THREE.MeshBasicMaterial({color:0xffefb0})); lamp.position.set(x,height+10,z); group.add(lamp);
+      };
+      const specs = {
+        riviera: { lands:[[-1750,-2850,700,480,240,0x8d9c72],[-2550,-2100,550,420,180,0x9b9878]], peaks:[[-1900,-2900,260,410,0x65775b],[-2600,-2150,200,300,0x718363]], village:[-2200,-2600,18,1.15,[0xf0d9b2,0xe7c79b,0xd9b18b]], trees:[[-2050,-2450],[-1980,-2520],[-2320,-2750],[-2400,-2500]], light:[-1450,-3200,95] },
+        moorea: { lands:[[-1700,-2750,760,610,310,0x3c8058],[-2600,-2200,530,450,220,0x4c8b5e],[-1100,-3300,420,360,170,0x4d875c]], peaks:[[-1700,-2750,370,850,0x315f49],[-2580,-2200,240,520,0x3e7050],[-1100,-3300,180,360,0x4b8057]], palms:[[-1900,-2300],[-1830,-2370],[-2150,-2600],[-2450,-2050],[-1200,-3100],[-1300,-3200]], reef:true },
+        dolphin: { lands:[[-1800,-2600,600,420,180,0x76a66c],[-2700,-3100,480,360,150,0x78a96c],[-900,-3300,390,300,125,0x80ae72]], peaks:[[-1800,-2600,210,300,0x5e895b],[-2700,-3100,160,240,0x638e5d]], palms:[[-1700,-2400],[-1770,-2450],[-2650,-2950],[-2800,-3000],[-950,-3200]], reef:true },
+        brest: { lands:[[-1750,-2850,820,500,180,0x647c65],[-2700,-2200,650,440,230,0x586f60],[-900,-3400,520,380,150,0x71836b]], peaks:[[-1850,-2800,260,350,0x526b5a],[-2700,-2200,280,390,0x4c6658]], trees:[[-1900,-2650],[-2000,-2750],[-2550,-2100],[-2450,-2150]], light:[-1250,-3200,130], village:[-2350,-2450,12,1.0,[0xd2d0c2,0xb9c1bb,0xd8c7a9]] },
+        greece: { lands:[[-1750,-2800,700,460,180,0xb8a77f],[-2600,-2300,590,420,220,0xc1ae83],[-1000,-3400,440,330,150,0xb9a77d]], peaks:[[-1800,-2800,250,390,0x9b906e],[-2600,-2300,230,360,0xa99a75]], village:[-1950,-2600,24,1.05,[0xf4f0df,0xe8e3d3,0xd8ddd9]], trees:[[-1700,-2450],[-1800,-2500],[-2500,-2200]], light:[-1200,-3250,90] }
+      };
+      for (const [key, spec] of Object.entries(specs)) {
+        const group = new THREE.Group(); group.name = 'Geographie_' + key;
+        for (const [x,z,rx,rz,h,c] of spec.lands || []) makeLand(group,x,z,rx,rz,h,c,(x-z)*0.001);
+        for (const [x,z,r,h,c] of spec.peaks || []) addPeak(group,x,z,r,h,c, key==='brest'?7:9);
+        for (const [x,z] of spec.trees || []) addTree(group,x,z, key==='brest'?1.0:1.25,false);
+        for (const [x,z] of spec.palms || []) addTree(group,x,z,1.15,true);
+        if (spec.village) addVillage(group,...spec.village);
+        if (spec.light) addLighthouse(group,...spec.light);
+        if (spec.reef) {
+          const reef = new THREE.Mesh(new THREE.TorusGeometry(540,34,8,72),mat(0x6eaa8b)); reef.rotation.x=Math.PI/2; reef.position.set(-1850,-2,-2850); group.add(reef);
+          const reef2 = new THREE.Mesh(new THREE.TorusGeometry(720,18,7,72),mat(0x9bc6a0)); reef2.rotation.x=Math.PI/2; reef2.position.set(-1850,-3,-2850); group.add(reef2);
+        }
+        // Petit relief rocheux au premier plan pour casser l'horizon uniforme.
+        group.traverse(o=>{ if(o.isMesh){o.receiveShadow=true;} });
+        // Répartition des silhouettes autour de l'horizon : le paysage reste visible
+        // quelle que soit l'orientation de départ ou la caméra choisie.
+        for (const angle of [0, Math.PI/2, Math.PI, Math.PI*1.5]) {
+          const sector = angle === 0 ? group : group.clone(true);
+          sector.rotation.y = angle;
+          this.scene.add(sector);
+        }
+        group.visible = false; this.geoBySpot[key] = group;
+      }
+      // Le rivage générique est remplacé par les silhouettes propres à chaque carte.
+      this.coast.visible = false;
+      this.islands.visible = false;
+    }
+    _buildMarineLife() {
+      this.marineGroup = new THREE.Group(); this.marineGroup.visible = false;
+      const coralMats = [0xc98270, 0xb98c62, 0x9b8290, 0x719b8b, 0xc3a96e, 0x9f7768].map(color => new THREE.MeshStandardMaterial({ color, roughness: 0.94, metalness: 0 }));
+      const brainCanvas = document.createElement('canvas'); brainCanvas.width = brainCanvas.height = 128;
+      const brainCtx = brainCanvas.getContext('2d'), brainPixels = brainCtx.createImageData(128, 128);
+      for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+        const u = x / 128, v = y / 128;
+        const path = u * 11 + 2.1 * Math.sin(v * 9 + u * 3.2) + 0.8 * Math.sin(v * 20 - u * 6);
+        const ridge = Math.pow(0.5 + 0.5 * Math.cos(path * Math.PI * 2), 5);
+        const grain = 0.92 + 0.08 * Math.sin(x * 1.71 + y * 2.37) * Math.sin(y * 0.83 - x * 0.42);
+        const i = (y * 128 + x) * 4, shade = (92 + 105 * ridge) * grain;
+        brainPixels.data[i] = shade; brainPixels.data[i + 1] = shade; brainPixels.data[i + 2] = shade * 0.92; brainPixels.data[i + 3] = 255;
+      }
+      brainCtx.putImageData(brainPixels, 0, 0);
+      const brainTex = new THREE.CanvasTexture(brainCanvas); brainTex.wrapS = brainTex.wrapT = THREE.RepeatWrapping; brainTex.repeat.set(2, 1);
+      const brainMats = [0xc9a77b, 0xa98d75, 0xb99b8b].map(color => new THREE.MeshStandardMaterial({ color, map: brainTex, roughness: 0.97 }));
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x788d76, roughness: 1 });
+      const patches = [[24, -35], [-70, 48], [110, 22], [-150, -115], [190, 135], [-215, 105], [35, 245], [250, -80], [-275, -40], [130, 260], [-85, 285], [295, 185]];
+      let coralSeed = 47231;
+      const coralRand = () => { coralSeed = (coralSeed * 1664525 + 1013904223) >>> 0; return coralSeed / 4294967296; };
+      const branchGeo = new THREE.CylinderGeometry(0.18, 0.82, 1, 7);
+      const tipGeo = new THREE.SphereGeometry(0.075, 7, 5);
+      const rockGeo = new THREE.DodecahedronGeometry(1, 1), brainGeo = new THREE.SphereGeometry(1, 18, 12);
+      const plateGeo = new THREE.CylinderGeometry(1.25, 0.75, 0.12, 12);
+      const branchMatrices = coralMats.map(() => []), tipMatrices = coralMats.map(() => []);
+      const brainMatrices = brainMats.map(() => []), plateMatrices = coralMats.map(() => []), rockMatrices = [];
+      const dummy = new THREE.Object3D(), identity = new THREE.Quaternion();
+      const addMatrix = (list, position, quaternion, scale) => {
+        dummy.position.copy(position); dummy.quaternion.copy(quaternion); dummy.scale.copy(scale); dummy.updateMatrix(); list.push(dummy.matrix.clone());
+      };
+      const up = new THREE.Vector3(0, 1, 0);
+      const addBranch = (base, yaw, length, radius, depth, matIndex) => {
+        const start = new THREE.Vector3(base.x, base.y, base.z);
+        const end = start.clone().add(new THREE.Vector3(Math.sin(yaw) * length * 0.42, length, Math.cos(yaw) * length * 0.42));
+        const delta = end.clone().sub(start), segLength = delta.length();
+        const middle = start.clone().add(end).multiplyScalar(0.5), direction = delta.normalize();
+        const quaternion = new THREE.Quaternion().setFromUnitVectors(up, direction);
+        addMatrix(branchMatrices[matIndex], middle, quaternion, new THREE.Vector3(radius, segLength, radius));
+        if (depth > 0) {
+          const joint = start.clone().lerp(end, 0.66);
+          addBranch(joint, yaw - 0.58 - coralRand() * 0.18, length * 0.66, radius * 0.68, depth - 1, matIndex);
+          addBranch(joint, yaw + 0.58 + coralRand() * 0.18, length * 0.63, radius * 0.66, depth - 1, matIndex);
+        } else {
+          addMatrix(tipMatrices[matIndex], end, identity, new THREE.Vector3(0.85, 1.15, 0.85));
+        }
+      };
+      patches.forEach(([x, z], p) => {
+        for (let r = 0; r < 3; r++) {
+          const a = coralRand() * Math.PI * 2, d = coralRand() * 7;
+          dummy.rotation.set(coralRand() * 0.25, coralRand() * 6, coralRand() * 0.2); dummy.updateMatrix();
+          const q = dummy.quaternion.clone(), pos = new THREE.Vector3(x + Math.cos(a) * d, -3.65 + coralRand() * 0.35, z + Math.sin(a) * d);
+          addMatrix(rockMatrices, pos, q, new THREE.Vector3(4 + coralRand() * 4, 0.8 + coralRand() * 1.1, 3 + coralRand() * 4));
+        }
+        for (let j = 0; j < 2; j++) {
+          const matIndex = (p + j) % brainMats.length;
+          const a = coralRand() * Math.PI * 2, d = 1.5 + coralRand() * 6;
+          const pos = new THREE.Vector3(x + Math.cos(a) * d, -3.05 + coralRand() * 0.16, z + Math.sin(a) * d);
+          const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, coralRand() * Math.PI * 2, 0));
+          const scale = new THREE.Vector3(1.5 + coralRand() * 1.5, 0.72 + coralRand() * 0.5, 1.3 + coralRand() * 1.4);
+          addMatrix(brainMatrices[matIndex], pos, q, scale);
+        }
+        const colonies = this.opts.mobile ? 5 : 7;
+        for (let j = 0; j < colonies; j++) {
+          const a = coralRand() * Math.PI * 2, r = 2 + coralRand() * 7;
+          const base = { x: x + Math.cos(a) * r, y: -3.35 + coralRand() * 0.35, z: z + Math.sin(a) * r };
+          const matIndex = (p * 3 + j) % coralMats.length, h = 0.75 + coralRand() * 0.8, yaw = coralRand() * Math.PI * 2;
+          addBranch(base, yaw, h, 0.10 + coralRand() * 0.05, 2, matIndex);
+          if (j % 3 === 0) {
+            const plateIndex = (p + j + 2) % coralMats.length, pos = new THREE.Vector3(base.x, -2.75, base.z);
+            const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0));
+            addMatrix(plateMatrices[plateIndex], pos, q, new THREE.Vector3(1.15 + coralRand(), 1, 0.8 + coralRand() * 0.6));
+          }
+        }
+      });
+      const addBatch = (geometry, materials, matrices) => materials.forEach((material, i) => {
+        if (!matrices[i].length) return;
+        const batch = new THREE.InstancedMesh(geometry, material, matrices[i].length);
+        matrices[i].forEach((matrix, n) => batch.setMatrixAt(n, matrix));
+        batch.instanceMatrix.needsUpdate = true; batch.castShadow = false; batch.receiveShadow = false; batch.frustumCulled = false;
+        this.marineGroup.add(batch);
+      });
+      const rockBatch = new THREE.InstancedMesh(rockGeo, rockMat, rockMatrices.length);
+      rockMatrices.forEach((matrix, i) => rockBatch.setMatrixAt(i, matrix));
+      rockBatch.instanceMatrix.needsUpdate = true; rockBatch.castShadow = false; rockBatch.receiveShadow = false; rockBatch.frustumCulled = false; this.marineGroup.add(rockBatch);
+      addBatch(branchGeo, coralMats, branchMatrices); addBatch(tipGeo, coralMats, tipMatrices);
+      addBatch(brainGeo, brainMats, brainMatrices); addBatch(plateGeo, coralMats, plateMatrices);
+      this.fish = [];
+      const fishMats = [0xffd34e, 0x51d9d2, 0xff9a58, 0xa9a2ff].map(color => new THREE.MeshStandardMaterial({ color, roughness: 0.48, metalness: 0.05 }));
+      for (let i = 0; i < 20; i++) {
+        const g = new THREE.Group(), mat = fishMats[i % fishMats.length];
+        const body = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), mat); body.scale.set(0.48, 0.22, 0.16); g.add(body);
+        const tail = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.36, 3), mat); tail.rotation.z = Math.PI / 2; tail.position.x = -0.43; g.add(tail);
+        const fin = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 3), mat); fin.position.set(0.05, 0.19, 0); g.add(fin);
+        const a = i * 2.4, r = 18 + (i % 6) * 18;
+        g.position.set(Math.cos(a) * r, -1.15 - (i % 4) * 0.18, Math.sin(a) * r);
+        this.marineGroup.add(g); this.fish.push({ g, x: g.position.x, z: g.position.z, a, speed: 0.35 + (i % 5) * 0.08 });
+      }
+      this.dolphins = [];
+      const dolphinMat = new THREE.MeshStandardMaterial({ color: 0x91c7d1, roughness: 0.45, metalness: 0.08 });
+      for (let i = 0; i < 3; i++) {
+        const g = new THREE.Group(), body = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), dolphinMat);
+        body.scale.set(0.95, 0.25, 0.28); g.add(body);
+        const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.52, 10), dolphinMat); nose.rotation.z = -Math.PI / 2; nose.position.x = 0.98; g.add(nose);
+        const fin = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.42, 7), dolphinMat); fin.position.set(-0.05, 0.28, 0); g.add(fin);
+        const tail = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.52, 8), dolphinMat); tail.position.x = -0.88; tail.rotation.z = Math.PI / 2; g.add(tail);
+        const a = i * 2.1 + 0.5, r = 95 + i * 27;
+        g.position.set(Math.cos(a) * r, -0.88, Math.sin(a) * r); this.marineGroup.add(g);
+        this.dolphins.push({ g, x: g.position.x, z: g.position.z, a, speed: 0.16 + i * 0.035 });
+      }
+      const turtleMat = new THREE.MeshStandardMaterial({ color: 0x4e9a70, roughness: 0.8 });
+      const turtle = new THREE.Group(), shell = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 10), new THREE.MeshStandardMaterial({ color: 0x39765b, roughness: 0.9 }));
+      shell.scale.set(1, 0.42, 0.82); turtle.add(shell);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 8), turtleMat); head.position.x = 0.62; turtle.add(head);
+      [[-0.2, -0.55], [0.35, -0.55], [-0.2, 0.55], [0.35, 0.55]].forEach(([x, z]) => {
+        const flipper = new THREE.Mesh(new THREE.SphereGeometry(0.24, 9, 7), turtleMat); flipper.scale.set(1.2, 0.22, 0.5); flipper.position.set(x, -0.04, z); turtle.add(flipper);
+      });
+      turtle.position.set(-38, -1.35, 62); this.marineGroup.add(turtle); this.turtle = turtle;
+      this.scene.add(this.marineGroup);
+    }
+    setWeather(key, waveH, windDirDeg) {
+      this.weatherKey = WEATHER[key] ? key : 'sun'; const w = this.weather = WEATHER[this.weatherKey]; this.waveH = waveH;
+      this.seaU.uAmp.value = waveH / 2;
+      this.clouds.forEach((c, i) => { c.visible = i < w.clouds; c.material.color.set(w.cloudCol); c.material.opacity = key === 'grey' ? 0.95 : 0.8; });
+      this.driftDir = (windDirDeg + 180) * Math.PI / 180;
+      this.seaU.uSeaDir.value.set(Math.sin(this.driftDir), -Math.cos(this.driftDir));
+      this._applyPalette();
+    }
+    setLocation(key) {
+      this.spotKey = SPOTS[key] ? key : 'riviera'; this.spot = SPOTS[this.spotKey];
+      this.marineGroup.visible = this.spotKey !== 'riviera';
+      this.islands.visible = false;
+      if (this.geoBySpot) for (const [key, group] of Object.entries(this.geoBySpot)) group.visible = key === this.spotKey;
+      this._applyPalette();
+    }
+    setTimeOfDay(hour) {
+      this.hour = hour;
+      this.timeStage = hour < 5 || hour >= 21.5 ? 'night' : (hour < 7.5 ? 'dawn' : (hour >= 17 && hour < 21.5 ? 'sunset' : 'day'));
+      const angle = (hour - 12) * Math.PI / 12;
+      this.sunDir.set(Math.sin(angle), Math.max(0.045, Math.sin((hour - 6) * Math.PI / 12)), -0.48).normalize();
+      this.dayBright = this.timeStage === 'night' ? 0.42 : (this.timeStage === 'day' ? 0.94 : 0.76);
+      this.seaU.uNight.value = this.timeStage === 'night' ? 1 : 0;
+      this.skyU.uNight.value = this.seaU.uNight.value;
+      this._applyPalette();
+    }
+    _applyPalette() {
+      const w = this.weather || WEATHER.sun, p = this.spot || SPOTS.riviera, stage = this.timeStage || 'day';
+      let horizon = p.horizon.slice(), zenith = p.zenith.slice(), shallow = p.shallow.slice(), deep = p.deep.slice(), sun = w.sun;
+      if (this.weatherKey === 'cloudy') { horizon = [0.68, 0.75, 0.81]; zenith = [0.26, 0.40, 0.60]; sun *= 0.58; }
+      if (this.weatherKey === 'grey') { horizon = [0.55, 0.61, 0.67]; zenith = [0.30, 0.35, 0.42]; sun *= 0.22; }
+      if (stage === 'sunset') {
+        horizon = [0.98, 0.40, 0.25]; zenith = [0.31, 0.23, 0.48];
+        shallow = this.spotKey === 'riviera' ? [0.42, 0.31, 0.38] : [0.19, 0.58, 0.56]; deep = [0.06, 0.10, 0.23]; sun = 0.72;
+      } else if (stage === 'dawn') {
+        horizon = [0.98, 0.59, 0.39]; zenith = [0.31, 0.43, 0.65]; sun = 0.62;
+      } else if (stage === 'night') {
+        horizon = [0.025, 0.075, 0.14]; zenith = [0.004, 0.012, 0.045];
+        shallow = this.spotKey === 'riviera' ? [0.012, 0.065, 0.13] : [0.015, 0.16, 0.22]; deep = [0.003, 0.015, 0.05]; sun = 0.018;
+      }
+      this.seaU.uHorizon.value.set(...horizon); this.seaU.uZenith.value.set(...zenith);
+      this.seaU.uShallow.value.set(...shallow); this.seaU.uDeep.value.set(...deep);
+      this.seaU.uSunK.value = sun; this.skyU.uSunK.value = sun;
+      this.seaU.uClarity.value = p.clarity;
+      const fogColor = new THREE.Color(...horizon);
+      this.scene.fog = new THREE.Fog(fogColor, this.spotKey === 'riviera' ? 1800 : 2300, this.spotKey === 'riviera' ? 5200 : 6800);
+      this.coastMat.color.setHex(stage === 'night' ? 0x182b32 : p.coast);
+      this.sunL.color.setHex(stage === 'night' ? 0x8ca9e8 : (stage === 'sunset' || stage === 'dawn' ? 0xffb078 : 0xfff1d6));
+      this.sunL.intensity = (stage === 'night' ? 0.10 : (stage === 'day' ? 0.25 + 1.15 * sun : 0.55));
+      this.hemi.intensity = stage === 'night' ? 0.30 : (stage === 'day' ? 0.75 + (1 - sun) * 0.25 : 0.56);
+    }
+    setWaves(waves, H) {
+      const u = this.seaU;
+      for (let i = 0; i < 4; i++) { const w = waves[i]; u.uWd.value[i].set(w.dx, w.dz); u.uWk.value[i] = w.k; u.uWw.value[i] = w.w; u.uWA.value[i] = w.A; u.uWph.value[i] = w.ph; }
+      u.uAmp.value = Math.max(0.05, H / 2);
+    }
+    setBuoys(list) {
+      this.buoyMeshes.forEach(m => this.scene.remove(m.g)); this.buoyMeshes = [];
+      for (const b of list) {
+        const g = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), new THREE.MeshStandardMaterial({ color: b.col, roughness: 0.5 }));
+        body.position.y = 0.1; body.castShadow = true;
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.4, 14), new THREE.MeshStandardMaterial({ color: b.col, roughness: 0.55 })); cone.position.y = 1.9;
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.22, 16), new THREE.MeshStandardMaterial({ color: 0xffffff })); band.position.y = 1.0;
+        const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.7), new THREE.MeshBasicMaterial({ color: b.col, side: THREE.DoubleSide })); flag.position.set(0.6, 3.5, 0);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.2), new THREE.MeshStandardMaterial({ color: 0x333333 })); pole.position.y = 3.0;
+        g.add(body, cone, band, pole, flag); this.scene.add(g); this.buoyMeshes.push({ g, flag, b });
+      }
+    }
+    update(dt, sim, camera) {
+      this.t += dt; const t = sim.t;
+      const u = this.seaU; u.uT.value = t; u.uCenter.value.set(camera.position.x, camera.position.z);
+      u.uSpeed.value = Math.hypot(sim.u, sim.v) / P.KN;
+      this.sky.position.copy(camera.position);
+      const day = (this.dayBright || 0.94) * (1 + 0.018 * Math.sin(this.t * 0.02));
+      u.uBright.value = day; this.skyU.uBright.value = day;
+      this.sunL.position.set(sim.x + this.sunDir.x * 30, 30 * this.sunDir.y + sim.y, sim.z + this.sunDir.z * 30);
+      this.sunL.target.position.set(sim.x, sim.y, sim.z); this.sunL.target.updateMatrixWorld();
+      const dx = Math.sin(this.driftDir || 0), dz = -Math.cos(this.driftDir || 0), sp = 6 + sim.cfg.windKn * 0.7;
+      for (const c of this.clouds) {
+        const b = c.userData.base; b.x += dx * sp * dt; b.z += dz * sp * dt;
+        const d = Math.hypot(b.x, b.z); if (d > 3900) { b.x *= -0.92; b.z *= -0.92; }
+        c.position.set(b.x + sim.x * 0.0, b.y, b.z);
+      }
+      const o = this._bo || (this._bo = {});
+      for (const m of this.buoyMeshes) {
+        P.waveAt(sim.waves, m.b.x, m.b.z, t, o);
+        m.g.position.set(m.b.x, o.h - 0.15, m.b.z); m.g.rotation.set(Math.atan(o.gz) * 0.8, 0, -Math.atan(o.gx) * 0.8);
+        m.flag.scale.x = 1 + 0.15 * Math.sin(t * 6 + m.b.x); m.g.rotation.y = -sim.wind.dirFrom;
+      }
+      for (const f of this.fish) {
+        const a = f.a + t * f.speed; f.g.position.set(f.x + Math.cos(a) * 3.5, -1.18 + Math.sin(t * 1.8 + f.a) * 0.16, f.z + Math.sin(a) * 3.5);
+        f.g.rotation.y = -a + Math.PI / 2;
+      }
+      for (const d of this.dolphins) {
+        const a = d.a + t * d.speed; d.g.position.set(d.x + Math.cos(a) * 8, -0.92 + Math.sin(t * 1.2 + d.a) * 0.2, d.z + Math.sin(a) * 8);
+        d.g.rotation.y = -a + Math.PI / 2; d.g.rotation.z = Math.sin(t * 1.7 + d.a) * 0.08;
+      }
+      this.turtle.position.y = -1.35 + Math.sin(t * 0.8) * 0.06; this.turtle.rotation.y = Math.sin(t * 0.17) * 0.12;
+      this.particles.mat.uniforms.uScale.value = camera.userData.pxScale || 700;
+      this.particles.update(dt, sim.waves, t);
+    }
+    /* intensité 0..1 */
+    foam(x, z, vx, vz, n, spread, big) {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * 6.283, r = Math.random() * spread;
+        this.particles.emit(x + Math.cos(a) * r, 0, z + Math.sin(a) * r, vx * 0.25 + (Math.random() - 0.5) * 0.5, 0, vz * 0.25 + (Math.random() - 0.5) * 0.5, 2.2 + Math.random() * 1.6, 0.35 * big, 0.9 * big, 0.55, 0, true);
+      }
+    }
+    spray(x, y, z, vx, vz, n, power) {
+      for (let i = 0; i < n; i++) {
+        this.particles.emit(x + (Math.random() - 0.5) * 0.4, y, z + (Math.random() - 0.5) * 0.4,
+          vx * 0.4 + (Math.random() - 0.5) * 2.2 * power, 1.8 + Math.random() * 3.2 * power, vz * 0.4 + (Math.random() - 0.5) * 2.2 * power,
+          0.7 + Math.random() * 0.7, 0.16, 0.06, 0.85, 9.8, false);
+      }
+    }
+  }
+  global.CatEnv = { Env, WEATHER };
+})(window);
+
+</script>
+<script>
+/* boat.js — Catamaran (coques, trampoline, mât, voile déformable, safrans, dérives, cordages) et équipiers. */
+(function (global) {
+  'use strict';
+  const THREE = global.THREE, P = global.CatPhysics, clamp = P.clamp;
+  const LOOKS = {
+    hobie14: { hull: 0xf4f6f8, deck: 0xf4f6f8, stripe: 0xd8232a, sail: ['#f7f7f2', '#d8232a', '#f2c200'], spi: ['#f2c200', '#f7f7f2', '#d8232a'], num: '14', vest: 0xff7a00 },
+    /* Hobie Cat 16 d'après photo : coques blanches, mât et bôme noirs, trampoline noir, grand-voile et foc arc-en-ciel */
+    hobie16: { hull: 0xf3f4f2, deck: 0xf3f4f2, stripe: 0xf3f4f2, sail: ['#f7f7f2', '#d8232a', '#1d5fbf'], spi: ['#d8232a', '#f7f7f2', '#1d5fbf'], rainbow: ['#3a4fa0', '#b02a38', '#e0612a', '#7fb4d8', '#f2cf3a', '#f0b030', '#e8452a', '#d92b2b', '#2f6fc0'], jibBands: ['#f2cf3a', '#e8872a', '#d92b2b', '#2f6fc0'], mast: 0x15171a, tramp: '#141618', sternRise: 0.34, jib: true, noLogo: true, num: '29936', vest: 0xffc400 },
+    dart18:  { hull: 0x17418a, deck: 0x17418a, stripe: 0xffffff, sail: ['#f4f4f4', '#17418a', '#17418a'], spi: ['#17418a', '#f4f4f4', '#d8232a'], num: '18', vest: 0xff4d2e },
+    /* Nacra 15 d'après photo : coques blanc bleuté, pont noir antidérapant, dérives bleu clair, mât noir, grand-voile en film transparent à lattes noires, spi rouge */
+    nacra15: { hull: 0xe6edf5, deck: 0x1b1f25, stripe: 0x1b1f25, sail: ['#bcd8ee', '#1d5fbf', '#d8232a'], spi: ['#e5372b', '#f4f4f4', '#e5372b'], film: true, mast: 0x15181c, fin: 0x7db4de, tramp: '#2a2420', logo: '#1d3fa8', num: '15', vest: 0x1d2a3a },
+    nacra17: { hull: 0xe7edf2, deck: 0x252a30, stripe: 0x1d5fbf, sail: ['#f4f4f4','#1d5fbf','#e5372b'], spi: ['#e5372b','#f4f4f4','#1d5fbf'], film: true, mast: 0x15181c, fin: 0x1d5fbf, tramp: '#252a30', num: '17', vest: 0xffc400 },
+    tornado: { hull: 0xf1f1ed, deck: 0x252525, stripe: 0xd8232a, sail: ['#f4f4f4','#d8232a','#252525'], spi: ['#d8232a','#f4f4f4','#252525'], mast: 0x15181c, tramp: '#252525', num: 'TOR', vest: 0xff7a00 }
+  };
+
+  function sailTexture(look, num) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 256; const g = c.getContext('2d');
+    if (look.rainbow) {
+      const bands = look.rainbow, h = 256 / bands.length;
+      bands.forEach((col, i) => { g.fillStyle = col; g.fillRect(0, i * h, 256, h + 1); });
+      g.fillStyle = 'rgba(15,15,20,0.9)'; g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(num, 146, h * 6.5);       // numéro de voile (sur la bande rouge-orangé)
+      g.font = 'italic bold 30px sans-serif'; g.fillText('Hobie', 120, h * 2.5);
+      g.fillStyle = 'rgba(255,255,255,0.85)'; [[2, 0.1], [3, 0.12], [5, 0.1], [7, 0.12]].forEach(([i, x]) => { g.fillRect(256 * x, (i + 0.55) * h, 22, 8); });
+      g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 1; for (let i = 1; i < bands.length; i++) { g.beginPath(); g.moveTo(0, i * h); g.lineTo(256, i * h); g.stroke(); }
+      const tr = new THREE.CanvasTexture(c); tr.anisotropy = 4; return tr;
+    }
+    if (look.film) {
+      g.clearRect(0, 0, 256, 256);
+      const gr = g.createLinearGradient(0, 0, 256, 256); gr.addColorStop(0, 'rgba(210,232,248,0.30)'); gr.addColorStop(0.5, 'rgba(235,246,255,0.14)'); gr.addColorStop(1, 'rgba(200,225,245,0.30)');
+      g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+      g.fillStyle = 'rgba(15,20,28,0.92)'; [[26, 4], [112, 7], [172, 7], [214, 6]].forEach(([y, h]) => { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y - 10); g.lineTo(256, y - 10 + h); g.lineTo(0, y + h); g.fill(); });   // lattes noires
+      g.fillStyle = 'rgba(29,63,168,0.95)'; g.font = 'italic 900 34px sans-serif'; g.textAlign = 'center'; g.fillText('NACRA', 150, 236); g.font = 'italic 900 24px sans-serif'; g.fillText(num, 150, 254);
+      g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1; for (let i = 0; i < 8; i++) { g.beginPath(); g.moveTo(0, 20 + i * 32); g.lineTo(256, 28 + i * 32); g.stroke(); }
+      const tf = new THREE.CanvasTexture(c); tf.anisotropy = 4; return tf;
+    }
+    g.fillStyle = look.sail[0]; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = look.sail[1]; g.fillRect(0, 150, 256, 18); g.fillRect(0, 30, 256, 10);
+    g.fillStyle = look.sail[2]; g.fillRect(0, 168, 256, 6);
+    g.fillStyle = look.sail[2]; g.font = 'bold 74px sans-serif'; g.textAlign = 'center'; g.globalAlpha = 0.9; g.fillText(num, 140, 120);
+    g.globalAlpha = 0.25; g.strokeStyle = '#8a929a'; g.lineWidth = 1;
+    for (let i = 1; i < 8; i++) { g.beginPath(); g.moveTo(0, i * 32); g.lineTo(256, i * 32 - 10); g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+  }
+  function spiTexture(look, type) {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
+    const col = look.spi; g.fillStyle = col[0]; g.fillRect(0, 0, 128, 128);
+    if (type === 'run') { g.fillStyle = col[1]; g.fillRect(44, 0, 40, 128); g.fillStyle = col[2]; g.fillRect(84, 0, 44, 128); }     // spi de portant : panneaux de couleur
+    g.strokeStyle = type === 'run' ? 'rgba(0,0,0,0.14)' : 'rgba(120,10,10,0.55)'; g.lineWidth = type === 'run' ? 1 : 2;               // spi de travers : coutures sombres
+    for (let i = 0; i < 128; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.stroke(); }
+    const t = new THREE.CanvasTexture(c); return t;
+  }
+  function jibTexture(look) {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d'), bands = look.jibBands, h = 128 / bands.length;
+    bands.forEach((col, i) => { g.fillStyle = col; g.fillRect(0, i * h, 128, h + 1); });
+    g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(34, 2.6 * h, 18, 7);
+    const t = new THREE.CanvasTexture(c); return t;
+  }
+  function trampTexture(base) {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = base || '#23272e'; g.fillRect(0, 0, 128, 128); g.strokeStyle = '#3b424d'; g.lineWidth = 2;
+    for (let i = 0; i <= 128; i += 8) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(128, i); g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 6); return t;
+  }
+  function rod(a, b, r, mat) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 6), mat);
+    setRod(m, a, b); return m;
+  }
+  const _u = new THREE.Vector3(0, 1, 0), _d = new THREE.Vector3();
+  function setRod(m, a, b) {
+    _d.subVectors(b, a); const len = _d.length(); m.position.copy(a).addScaledVector(_d, 0.5); m.scale.set(1, len, 1);
+    m.quaternion.setFromUnitVectors(_u, _d.normalize());
+  }
+
+  /* Coque : sections elliptiques le long de z (étrave en -z). */
+  function hullGeometry(L, Wmax, cHull, cDeck, sr) {
+    const NS = 28, NR = 14, pos = [], idx = [], col = [];
+    for (let s = 0; s <= NS; s++) {
+      const t = s / NS;
+      const w = Wmax * (0.05 + 0.95 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.78) * 0.96 + 0.06), 0.7)) * (t > 0.9 ? 1 - (t - 0.9) * 1.6 : 1);
+      const keel = -0.20 + 0.55 * Math.pow(1 - t, 3.2) + (sr === undefined ? 0.12 : sr) * Math.pow(t, 3);
+      const deck = 0.40 + 0.22 * Math.pow(1 - t, 2.4) - 0.04 * t;
+      const cy = (deck + keel) / 2, hh = Math.max(0.01, (deck - keel) / 2), z = -L / 2 + t * L;
+      for (let r = 0; r < NR; r++) {
+        const a = r / NR * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+        pos.push(Math.sign(ca) * Math.pow(Math.abs(ca), 0.75) * w, cy + Math.sign(sa) * Math.pow(Math.abs(sa), 0.9) * hh, z);
+        const top = sa > 0.12; col.push(top ? cDeck.r : cHull.r, top ? cDeck.g : cHull.g, top ? cDeck.b : cHull.b);
+      }
+    }
+    for (let s = 0; s < NS; s++) for (let r = 0; r < NR; r++) {
+      const a = s * NR + r, b = s * NR + (r + 1) % NR, c = a + NR, d = b + NR; idx.push(a, b, c, b, d, c);
+    }
+    const cb = pos.length / 3; pos.push(0, 0.1, -L / 2); const ce = cb + 1; pos.push(0, 0.1, L / 2); col.push(cHull.r, cHull.g, cHull.b, cHull.r, cHull.g, cHull.b);
+    for (let r = 0; r < NR; r++) { idx.push(cb, (r + 1) % NR, r); const o = NS * NR; idx.push(ce, o + r, o + (r + 1) % NR); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+  }
+
+  const L_LOGO = b => b.L * 0.34;
+  class Boat {
+    constructor(scene, boatId, spiType, hasFoils) {
+      this.spiType = spiType === 'reach' ? 'reach' : 'run';
+      this.scene = scene; this.b = P.BOATS[boatId]; this.look = LOOKS[boatId];
+      const b = this.b, L = b.L, B = b.B, hb = B / 2 - 0.22;
+      this.root = new THREE.Group(); this.root.rotation.order = 'YXZ';
+      this.roll = new THREE.Group(); this.roll.rotation.order = 'ZXY'; this.root.add(this.roll);
+      const mk = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r === undefined ? 0.4 : r, metalness: m || 0 });
+      const mHull = mk(this.look.hull, 0.28), mAl = mk(0xc9ced4, 0.35, 0.8), mMast = mk(this.look.mast || 0xc9ced4, 0.35, this.look.mast ? 0.3 : 0.8), mFin = mk(this.look.fin || 0x23272e, 0.5), mDark = mk(0x23272e, 0.8), mRope = mk(0xf0f0f0, 0.7), mStripe = mk(this.look.stripe, 0.4);
+      mHull.side = THREE.DoubleSide; mHull.color.set(0xffffff); mHull.vertexColors = true;
+      // coques
+      this.hulls = [-1, 1].map(sd => {
+        const m = new THREE.Mesh(hullGeometry(L, 0.24, new THREE.Color(this.look.hull), new THREE.Color(this.look.deck), this.look.sternRise), mHull); m.position.x = sd * hb; m.castShadow = m.receiveShadow = true; this.roll.add(m);
+        if (!this.look.noLogo) { const lg = this._logo(sd); this.roll.add(lg); lg.position.set(sd * (hb + 0.243), 0.12, L * 0.02); lg.rotation.y = sd * Math.PI / 2; }
+        const st = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, L * 0.55), mStripe); st.position.set(sd * hb, 0.385, 0.0); this.roll.add(st);
+        // dérive (aileron courbe sous la coque)
+        const fin = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.42), mFin); fin.position.set(sd * hb, -0.38, L * 0.05); fin.castShadow = true; this.roll.add(fin);
+        // safran
+        const rud = new THREE.Group(); rud.position.set(sd * hb, 0.30, L / 2 - 0.05);
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.85, 0.26), mDark); blade.position.set(0, -0.45, 0.1); blade.castShadow = true;
+        const head = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6), mAl); head.position.y = 0.2;
+        rud.add(blade, head); this.roll.add(rud); return rud;
+      });
+      this.foilRoot = null;
+      if (this.b.id === 'nacra15') {
+        this.foilRoot = new THREE.Group();
+        const foilMat = mk(0x76c9e8, 0.26, 0.55), strutMat = mk(0x374c60, 0.32, 0.42);
+        for (const sd of [-1, 1]) {
+          const strut = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.92, 0.12), strutMat);
+          strut.position.set(sd * hb, -0.74, L * 0.04); strut.castShadow = true; this.foilRoot.add(strut);
+          const wing = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.075, 0.22), foilMat);
+          wing.position.set(sd * hb, -1.18, L * 0.04); wing.rotation.z = sd * 0.08; wing.castShadow = true; this.foilRoot.add(wing);
+          const tip = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.22, 0.20), foilMat);
+          tip.position.set(sd * (hb + 0.40), -1.17, L * 0.04); tip.rotation.z = -sd * 0.12; this.foilRoot.add(tip);
+        }
+        this.foilRoot.visible = !!hasFoils; this.roll.add(this.foilRoot);
+      }
+      // barres + trampoline
+      const zF = -L * 0.22, zA = L * 0.28;
+      for (const z of [zF, zA]) { const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 2 * hb, 10), mAl); bar.rotation.z = Math.PI / 2; bar.position.set(0, 0.36, z); bar.castShadow = true; this.roll.add(bar); }
+      const tw = 2 * hb - 0.44, tl = zA - zF;
+      const tg = new THREE.PlaneGeometry(tw, tl, 8, 10); tg.rotateX(-Math.PI / 2);
+      const tp = tg.attributes.position; for (let i = 0; i < tp.count; i++) { const x = tp.getX(i) / (tw / 2), z = tp.getZ(i) / (tl / 2); tp.setY(i, -0.04 * (1 - x * x) * (1 - z * z)); }
+      tg.computeVertexNormals();
+      const tramp = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ map: trampTexture(this.look.tramp), roughness: 0.9, side: THREE.DoubleSide })); tramp.position.set(0, 0.40, (zF + zA) / 2); tramp.receiveShadow = true; this.roll.add(tramp);
+      this.deckY = 0.38;
+      // mât
+      const mz = -L * 0.12, mh = b.mastH;
+      this.mastPos = new THREE.Vector3(0, 0.40, mz);
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.05, mh, 10), mMast); mast.position.set(0, 0.40 + mh / 2, mz); mast.castShadow = true; this.roll.add(mast);
+      const top = new THREE.Vector3(0, 0.40 + mh, mz), hound = new THREE.Vector3(0, 0.40 + mh * 0.78, mz);
+      // haubans + étai
+      this.roll.add(rod(hound, new THREE.Vector3(-hb, 0.40, mz + 0.05), 0.006, mAl), rod(hound, new THREE.Vector3(hb, 0.40, mz + 0.05), 0.006, mAl),
+        rod(top, new THREE.Vector3(0, 0.55, -L / 2 + 0.05), 0.006, mAl));
+      // trapèze (fils)
+      this.trapWires = [-1, 1].map(sd => { const w = rod(hound, new THREE.Vector3(sd * (hb + 0.2), 2.4, mz), 0.005, mRope); w.visible = false; this.roll.add(w); return w; });
+      // bôme
+      this.boomY = 1.30 + 0.40; this.boom = new THREE.Group(); this.boom.position.set(0, this.boomY, mz);
+      const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, b.boomL, 8), mMast); bm.rotation.x = Math.PI / 2; bm.position.z = b.boomL / 2; bm.castShadow = true; this.boom.add(bm); this.roll.add(this.boom);
+      // voile (maillage déformable)
+      this.NU = 10; this.NV = 14; const NU = this.NU, NV = this.NV, uv = [], idx = [];
+      for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) uv.push(i / NU, j / NV);
+      for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = j * (NU + 1) + i, c = a + NU + 1; idx.push(a, a + 1, c, a + 1, c + 1, c); }
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array((NU + 1) * (NV + 1) * 3), 3));
+      sg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); sg.setIndex(idx);
+      this.sailGeo = sg; this.sail = new THREE.Mesh(sg, new THREE.MeshStandardMaterial(this.look.film ? { map: sailTexture(this.look, this.look.num), side: THREE.DoubleSide, roughness: 0.25, metalness: 0.1, transparent: true, depthWrite: false } : { map: sailTexture(this.look, this.look.num), side: THREE.DoubleSide, roughness: 0.85, transparent: false }));
+      this.sail.castShadow = true; this.sail.frustumCulled = false; this.roll.add(this.sail);
+      // spi (gennaker asymétrique) + tangon
+      this.SA = 12; this.SB = 8; const sa = this.SA, sb = this.SB, suv = [], sidx = [];
+      for (let i = 0; i <= sa; i++) for (let j = 0; j <= sb; j++) suv.push(j / sb, i / sa);
+      for (let i = 0; i < sa; i++) for (let j = 0; j < sb; j++) { const a = i * (sb + 1) + j, c = a + sb + 1; sidx.push(a, a + 1, c, a + 1, c + 1, c); }
+      const spg = new THREE.BufferGeometry(); spg.setAttribute('position', new THREE.BufferAttribute(new Float32Array((sa + 1) * (sb + 1) * 3), 3)); spg.setAttribute('uv', new THREE.Float32BufferAttribute(suv, 2)); spg.setIndex(sidx);
+      this.spiGeo = spg; this.spi = new THREE.Mesh(spg, new THREE.MeshStandardMaterial({ map: spiTexture(this.look, this.spiType), side: THREE.DoubleSide, roughness: 0.6 })); this.spi.frustumCulled = false; this.spi.visible = false; this.spi.castShadow = true; this.roll.add(this.spi);
+      this.pole = rod(new THREE.Vector3(0, 0.6, -L / 2 + 0.3), new THREE.Vector3(0, 0.62, -L / 2 - 0.85), 0.022, mAl); this.pole.visible = false; this.roll.add(this.pole);
+      // foc (visuel seulement, non simulé)
+      if (this.look.jib) {
+        const na = 10, nb = 6, juv = [], jidx = [];
+        for (let i = 0; i <= na; i++) for (let j = 0; j <= nb; j++) juv.push(j / nb, i / na);
+        for (let i = 0; i < na; i++) for (let j = 0; j < nb; j++) { const a = i * (nb + 1) + j, c = a + nb + 1; jidx.push(a, a + 1, c, a + 1, c + 1, c); }
+        const jg = new THREE.BufferGeometry(); jg.setAttribute('position', new THREE.BufferAttribute(new Float32Array((na + 1) * (nb + 1) * 3), 3)); jg.setAttribute('uv', new THREE.Float32BufferAttribute(juv, 2)); jg.setIndex(jidx);
+        this.jibGeo = jg; this.jibN = [na, nb]; this.jib = new THREE.Mesh(jg, new THREE.MeshStandardMaterial({ map: jibTexture(this.look), side: THREE.DoubleSide, roughness: 0.85 })); this.jib.frustumCulled = false; this.jib.castShadow = true; this.roll.add(this.jib);
+      }
+      // écoute
+      this.sheetRod = rod(new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 0.008, mRope); this.roll.add(this.sheetRod); this.sheetBase = new THREE.Vector3(0, 0.46, zA - 0.15);
+      // barre + rallonge
+      const tillerZ = L / 2 - 0.05; this.tiller = rod(new THREE.Vector3(-hb, 0.5, tillerZ), new THREE.Vector3(hb, 0.5, tillerZ), 0.012, mAl); this.roll.add(this.tiller);
+      this.crew = [0, 1].map(i => this._makeCrew(i)); this.crew.forEach(c => this.roll.add(c.g));
+      this._v = new THREE.Vector3(); scene.add(this.root);
+      this.hbc = hb; this.mz = mz; this.zA = zA;
+      this.hullWorldMat = [mHull];
+    }
+    _logo(sd) {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
+      g.fillStyle = this.look.logo || '#1d3fa8'; g.textAlign = 'center'; g.font = 'italic 900 70px sans-serif';
+      const nm = this.b.name.toUpperCase().replace(' CAT', '').replace('HOBIE', 'HOBIE'); const parts = nm.split(' ');
+      g.fillText(parts.slice(0, -1).join(' ') || nm, 256, 62); g.font = 'italic 900 52px sans-serif'; if (parts.length > 1) g.fillText(parts[parts.length - 1], 256, 118);
+      const t = new THREE.CanvasTexture(c); t.anisotropy = 4;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(L_LOGO(this.b), L_LOGO(this.b) / 4), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); return m;
+    }
+    _makeCrew(idx) {
+      const skin = new THREE.MeshStandardMaterial({ color: 0xe2b48f, roughness: 0.8 }), suit = new THREE.MeshStandardMaterial({ color: idx ? 0x20262f : 0x1c3f66, roughness: 0.8 });
+      const vest = new THREE.MeshStandardMaterial({ color: this.look.vest, roughness: 0.76 });
+      const harnessMat = new THREE.MeshStandardMaterial({ color: 0x222a2e, roughness: 0.92 });
+      const buckleMat = new THREE.MeshStandardMaterial({ color: 0x8c9898, roughness: 0.38, metalness: 0.35 });
+      const g = new THREE.Group(), hip = new THREE.Group(); g.add(hip);
+      const torso = new THREE.Group(); hip.add(torso);
+      const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.5, 10), vest); chest.position.y = 0.27; chest.castShadow = true; torso.add(chest);
+      const straps = [-1, 1].map(sd => {
+        const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.40, 0.025), harnessMat);
+        strap.position.set(sd * 0.082, 0.30, 0.145); strap.rotation.z = -sd * 0.16; torso.add(strap); return strap;
+      });
+      const belt = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.018, 6, 18), harnessMat);
+      belt.rotation.x = Math.PI / 2; belt.position.y = 0.055; hip.add(belt);
+      const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.055, 0.025), buckleMat);
+      buckle.position.set(0, 0.055, 0.158); hip.add(buckle);
+      const head = new THREE.Group(); head.position.y = 0.66; torso.add(head);
+      const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 12), skin); headMesh.castShadow = true; head.add(headMesh);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.12, 8), skin); neck.position.y = -0.105; torso.add(neck);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.116, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: idx ? 0xe9edf0 : 0x17191d, roughness: 0.85 }));
+      cap.position.y = 0.025; head.add(cap);
+      const arms = [], forearms = [];
+      [-1, 1].forEach(sd => {
+        const sh = new THREE.Group(); sh.position.set(sd * 0.2, 0.46, 0);
+        const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.5, 8), suit); upper.position.y = -0.25; upper.castShadow = true; sh.add(upper);
+        const elbow = new THREE.Group(); elbow.position.y = -0.47;
+        const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.033, 0.31, 8), suit); lower.position.y = -0.145; lower.castShadow = true; elbow.add(lower);
+        const hand = new THREE.Mesh(new THREE.SphereGeometry(0.052, 9, 7), skin); hand.position.set(0, -0.30, 0.01); elbow.add(hand);
+        sh.add(elbow); torso.add(sh); arms.push(sh); forearms.push(elbow);
+      });
+      const legs = [-1, 1].map(sd => {
+        const th = new THREE.Group(); th.position.set(sd * 0.09, 0, 0);
+        const t = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.06, 0.45, 8), suit); t.position.y = -0.225; t.castShadow = true; th.add(t);
+        const kn = new THREE.Group(); kn.position.y = -0.45; const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.45, 8), suit); sh.position.y = -0.225; sh.castShadow = true; kn.add(sh);
+        const ft = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.07, 0.24), new THREE.MeshStandardMaterial({ color: 0x121619, roughness: 0.88 })); ft.position.set(0, -0.47, -0.05); kn.add(ft);
+        th.add(kn); hip.add(th); return { th, kn };
+      });
+      return { g, hip, torso, arms, forearms, legs, head, straps, belt, buckle, vest };
+    }
+    /* pose de l'équipier : pivot au bassin */
+    _poseCrew(c, sim, vis) {
+      const s = sim.crew[vis], b = this.b, hbc = this.hbc, o = c, t = s.trap, side = s.tgtSide || 1;
+      const bob = Math.sin(sim.t * 3.0 + vis * 1.8) * 0.018 + sim.slam * 0.025;
+      const pitchReact = clamp(-sim.pitchRate * 0.035, -0.14, 0.14);
+      const heelReact = clamp(-sim.heelRate * 0.024, -0.12, 0.12);
+      o.g.visible = true; o.g.rotation.set(0, 0, 0); o.hip.rotation.set(0, 0, 0); o.torso.rotation.set(0, 0, 0);
+      o.head.rotation.set(0, 0, 0); o.forearms.forEach(a => a.rotation.set(0, 0, 0));
+      const heel = sim.cap.mode === 'normal' ? 0 : 1;
+      if (s.state === 'water') {
+        // flotte dans l'eau, repère monde -> repère roll : on place en monde via root inverse (calculé par le jeu)
+        o.g.visible = false; return;
+      }
+      const sd = Math.sign(s.y) || side;
+      if (t > 0.02) {
+        // trapèze : pieds sur le bord extérieur de la coque, corps tendu vers l'extérieur
+        const feetX = sd * (hbc + 0.16), cgOut = Math.abs(s.y) - (hbc + 0.16);
+        const tilt = Math.atan2(Math.max(0, cgOut), 0.78) * clamp(t * 1.4, 0, 1);
+        const blend = clamp(t * 1.5, 0, 1);
+        o.g.position.set(feetX, this.deckY + 0.10 + Math.cos(tilt) * 0.92 + bob, s.z);
+        o.g.position.x = feetX + sd * Math.sin(tilt) * 0.92 * blend;
+        o.g.rotation.z = -sd * tilt;
+        o.torso.rotation.x = -0.05 - 0.22 * s.brace + pitchReact + Math.sin(sim.t * 2.6 + vis) * 0.018;
+        o.torso.rotation.z = heelReact * 0.65;
+        o.arms[0].rotation.x = -0.9 * blend; o.arms[1].rotation.x = -0.82 * blend;
+        o.arms[0].rotation.z = sd * 0.08; o.arms[1].rotation.z = -sd * 0.08;
+        o.forearms[0].rotation.x = 0.35 + 0.18 * s.brace; o.forearms[1].rotation.x = 0.48 + 0.12 * s.brace;
+        o.legs.forEach(l => { l.th.rotation.x = 0.05 + 0.25 * s.brace + Math.sin(sim.t * 2.4 + vis) * 0.025; l.kn.rotation.x = -0.45 * s.brace - 0.04 * Math.sin(sim.t * 2.4 + vis); });
+        o.hip.rotation.x = pitchReact * 0.35;
+      } else {
+        // assis au rappel (jambes pliées, buste incliné vers l'extérieur) ; accroupi pendant les changements de bord
+        const crouch = s.crouch;
+        o.g.position.set(s.y, this.deckY + 0.12 + s.h - 0.1 + bob, s.z);
+        o.g.rotation.z = -sd * (0.22 - 0.12 * crouch);
+        o.torso.rotation.x = -0.1 - 0.5 * crouch + s.lean * 0.4 - 0.3 * s.brace + pitchReact + Math.sin(sim.t * 2.8 + vis) * 0.02;
+        o.torso.rotation.z = heelReact - sim.heel * 0.07;
+        o.hip.rotation.x = pitchReact * 0.3;
+        o.legs.forEach((l, k) => { l.th.rotation.x = 1.15 + 0.35 * crouch + Math.sin(sim.t * 2.3 + vis + k) * 0.03; l.kn.rotation.x = -1.45 - 0.2 * crouch; l.th.rotation.z = (k ? -1 : 1) * 0.14; });
+        o.arms[0].rotation.x = -0.7; o.arms[1].rotation.x = -0.9;
+        o.forearms[0].rotation.x = -0.25; o.forearms[1].rotation.x = -0.08;
+      }
+      o.head.rotation.x = clamp(pitchReact * 0.55 + Math.sin(sim.t * 2.1 + vis * 1.5) * 0.025, -0.16, 0.16);
+      o.head.rotation.z = heelReact * 0.5;
+      if (s.climb > 0) { o.torso.rotation.x = -0.9 * s.climb; o.g.position.y -= 0.15 * s.climb; o.legs.forEach(l => { l.th.rotation.x = 0.9; l.kn.rotation.x = -1.2; }); }
+    }
+    /* mise à jour depuis la simulation */
+    update(sim, t) {
+      const b = this.b, root = this.root, roll = this.roll;
+      root.position.set(sim.x, sim.y, sim.z); root.rotation.y = -sim.psi; root.rotation.x = sim.pitch;
+      const h = sim.heel, hbc = this.hbc, w = clamp((1.57 - Math.abs(h)) / 0.4, 0, 1), px = Math.sign(h || 1) * hbc * w;
+      roll.rotation.z = -h; roll.position.set(px - px * Math.cos(h), px * Math.sin(h), 0);
+      if (sim.cap.mode !== 'normal' && Math.abs(h) > 1.57) roll.position.y = 0.15 * Math.cos(h) * 0 - 0.1;
+      this.rudderAngle = sim.steerEff * 0.55; this.hulls.length && this.hulls.forEach(r => (r.rotation.y = this.rudderAngle));
+      this.tiller.position.x = -sim.steerEff * 0.14;
+      // voile
+      this._sail(sim, t); this._spi(sim, t); if (this.jib) this._jib(sim, t);
+      const sa = sim.sailAngle;
+      this.boom.rotation.y = sa;
+      const be = new THREE.Vector3(Math.sin(sa) * b.boomL * 0.98, this.boomY, this.mz + Math.cos(sa) * b.boomL * 0.98);
+      const base = this.sheetBase.clone(); base.x = clamp(-Math.sign(sim.awa || 1) * 0.0 + be.x * 0.35, -0.5, 0.5);
+      setRod(this.sheetRod, be, base);
+      // équipage
+      for (let i = 0; i < 2; i++) { if (sim.crew[i].state === 'boat') this._poseCrew(this.crew[i], sim, i); else this.crew[i].g.visible = false; }
+      const c0 = sim.crew[0], c1 = sim.crew[1];
+      this._wire(this.trapWires[0], c0, sim, this.crew[0]); this._wire(this.trapWires[1], c1, sim, this.crew[1]);
+    }
+    _wire(w, c, sim, visualCrew) {
+      if (c.state !== 'boat' || c.trap < 0.25) { w.visible = false; return; }
+      const sd = Math.sign(c.y) || 1, hound = new THREE.Vector3(0, 0.40 + this.b.mastH * 0.78, this.mz);
+      const to = new THREE.Vector3(visualCrew.g.position.x, visualCrew.g.position.y, visualCrew.g.position.z);
+      setRod(w, hound, to); w.visible = true;
+    }
+    _jib(sim, t) {
+      const b = this.b, L = b.L, [NA, NB] = this.jibN, pos = this.jibGeo.attributes.position, mz = this.mz, aj = sim.sailAngle * 0.95, lee = sim.awa >= 0 ? -1 : 1, fl = sim.flutter;
+      const T = [0, 0.58, -L / 2 + 0.12], H = [0, 0.40 + b.mastH * 0.80, mz - 0.06], C = [Math.sin(aj) * 1.25, 1.05, mz + 0.3 + 0.8 * Math.cos(aj)];
+      for (let i = 0; i <= NA; i++) {
+        const a = i / NA;
+        for (let j = 0; j <= NB; j++) {
+          const u = j / NB, lx = T[0] + (H[0] - T[0]) * a, ly = T[1] + (H[1] - T[1]) * a, lz = T[2] + (H[2] - T[2]) * a;
+          const fx = C[0] + (H[0] - C[0]) * a, fy = C[1] + (H[1] - C[1]) * a, fz = C[2] + (H[2] - C[2]) * a;
+          const bel = Math.sin(Math.PI * u) * Math.sin(Math.PI * Math.min(1, 0.1 + 0.9 * a)) * 0.22 * (1 - fl) + Math.sin(t * 12 + a * 6 + u * 5) * fl * 0.16 * u;
+          const k = (i * (NB + 1) + j) * 3; pos.array[k] = lx + (fx - lx) * u + lee * bel; pos.array[k + 1] = ly + (fy - ly) * u; pos.array[k + 2] = lz + (fz - lz) * u;
+        }
+      }
+      pos.needsUpdate = true; this.jibGeo.computeVertexNormals();
+    }
+    _spi(sim, t) {
+      const p = sim.spiP, vis = p > 0.02; this.spi.visible = this.pole.visible = vis; if (!vis) return;
+      const b = this.b, L = b.L, SA = this.SA, SB = this.SB, pos = this.spiGeo.attributes.position, fill = sim.spiFill, lee = sim.awa >= 0 ? -1 : 1;
+      const T = new THREE.Vector3(0, 0.64, -L / 2 - 0.85), Hf = new THREE.Vector3(0, 0.40 + b.mastH * 0.97, this.mz - 0.1);
+      const rc = this.spiType === 'reach';
+      const Cf = rc ? new THREE.Vector3(lee * (0.8 + 1.5 * fill), 1.15 + 0.4 * fill, L * (-0.06 + 0.12 * fill)) : new THREE.Vector3(lee * (1.0 + 2.1 * fill), 1.05 + 0.5 * fill, L * (0.02 + 0.18 * fill)), Ch = new THREE.Vector3(lee * 0.35, 1.0, -L * 0.05);
+      const C = Ch.clone().lerp(Cf, fill);
+      const sc = 0.18 + 0.82 * p, H = Hf.clone().sub(T).multiplyScalar(sc).add(T), Cs = C.clone().sub(T).multiplyScalar(sc).add(T);
+      const nrm = new THREE.Vector3().crossVectors(H.clone().sub(T), Cs.clone().sub(T)).normalize(); if (nrm.z > 0) nrm.negate();
+      const wid = Cs.distanceTo(T), fl = 1 - fill, lp = new THREE.Vector3(), fe = new THREE.Vector3(), q = new THREE.Vector3();
+      for (let i = 0; i <= SA; i++) {
+        const a = i / SA; lp.copy(T).lerp(H, a); fe.copy(Cs).lerp(H, a);
+        for (let j = 0; j <= SB; j++) {
+          const u = j / SB; q.copy(lp).lerp(fe, u);
+          const bel = Math.sin(Math.PI * u) * Math.sin(Math.PI * Math.min(1, 0.12 + a * 0.88)) * (rc ? 0.05 + 0.15 * fill : 0.07 + 0.30 * fill) * wid + Math.sin(t * 10 + a * 7 + u * 5) * fl * 0.18 * wid * u * (1 - a * 0.5);
+          const k = (i * (SB + 1) + j) * 3; pos.array[k] = q.x + nrm.x * bel; pos.array[k + 1] = q.y + nrm.y * bel + (fl * -0.35 * u * (1 - a) * wid * 0.3); pos.array[k + 2] = q.z + nrm.z * bel;
+        }
+      }
+      pos.needsUpdate = true; this.spiGeo.computeVertexNormals();
+    }
+    _sail(sim, t) {
+      const b = this.b, NU = this.NU, NV = this.NV, p = this.sailGeo.attributes.position, a = sim.sailAngle;
+      const side = sim.awa >= 0 ? 1 : -1, lee = -side, H = b.mastH - 1.55, bh = this.boomY;
+      const draft = sim.draft, tw = sim.twist, fl = sim.flutter, mz = this.mz, sa = Math.sign(a) || -side;
+      for (let j = 0; j <= NV; j++) {
+        const v = j / NV, y = bh + 0.05 + v * (b.mastH + 0.4 - bh - 0.15);
+        const c = b.boomL * (1 - v * 0.96) + b.boomL * 0.14 * Math.sin(Math.PI * Math.min(1, v * 1.1)) * (1 - v);
+        const av = a + sa * tw * v * v * 0.9;
+        const dx = Math.sin(av), dz = Math.cos(av), px = Math.cos(av), pz = -Math.sin(av);
+        for (let i = 0; i <= NU; i++) {
+          const u = i / NU, r = u * c;
+          let bulge = lee * draft * 0.16 * c * 4 * u * (1 - u) * (0.6 + 0.4 * (1 - v));
+          bulge += lee * Math.sin(t * 13 + u * 8 + v * 6) * fl * 0.10 * c * u * u + Math.sin(t * 9 + v * 7) * fl * 0.05 * c * u;
+          const k = (j * (NU + 1) + i) * 3;
+          p.array[k] = dx * r + px * bulge; p.array[k + 1] = y; p.array[k + 2] = mz + dz * r + pz * bulge + 0.04;
+        }
+      }
+      p.needsUpdate = true; this.sailGeo.computeVertexNormals();
+    }
+    /* position monde d'un point du repère bateau */
+    toWorld(v) { this.root.updateMatrixWorld(true); return this.root.localToWorld(this.roll.localToWorld(v.clone()).clone().applyMatrix4(this.root.matrixWorld.clone().invert())); }
+    dispose() { this.scene.remove(this.root); }
+  }
+
+  /* Équipier à l'eau (corps flottant en repère monde) */
+  class Swimmer {
+    constructor(scene, vestColor, idx) {
+      this.g = new THREE.Group(); const skin = new THREE.MeshStandardMaterial({ color: 0xe2b48f, roughness: 0.8 });
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.55, 10), new THREE.MeshStandardMaterial({ color: vestColor })); body.rotation.z = Math.PI / 2 - 0.1; body.castShadow = true;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), skin); head.position.set(0.38, 0.08, 0);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.125, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: idx ? 0xffffff : 0x111111 })); cap.position.set(0.38, 0.1, 0);
+      const arm = (z) => { const a = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.55, 8), new THREE.MeshStandardMaterial({ color: 0x20262f })); a.rotation.z = Math.PI / 2 - 0.6; a.position.set(0.3, 0.25, z); return a; };
+      const leg = (z) => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0x20262f })); l.rotation.z = Math.PI / 2; l.position.set(-0.6, -0.05, z); return l; };
+      this.g.add(body, head, cap, arm(0.22), arm(-0.22), leg(0.1), leg(-0.1)); this.g.visible = false; scene.add(this.g);
+    }
+    update(c, sim, t) {
+      if (c.state !== 'water') { this.g.visible = false; return; }
+      this.g.visible = true; this.g.position.set(c.wx, c.wy - 0.12 + 0.04 * Math.sin(t * 2 + c.idx), c.wz);
+      const dx = sim.x - c.wx, dz = sim.z - c.wz; this.g.rotation.y = -Math.atan2(dz, dx) + Math.PI; this.g.rotation.z = 0.15 * Math.sin(t * 1.7 + c.idx * 2);
+    }
+    dispose(scene) { scene.remove(this.g); }
+  }
+  global.CatBoat = { Boat, Swimmer, LOOKS };
+})(window);
+
+</script>
+<script>
+/* game.js — Boucle unique à pas fixe, caméras, commandes, instruments, menu, mode course. */
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const P = window.CatPhysics, D2R = P.D2R, KN = P.KN, clamp = P.clamp, wrapPi = P.wrapPi;
+  const fail = m => { const e = $('fatal'); e.hidden = false; e.textContent = m; };
+  if (!window.THREE) { fail('Three.js n’a pas pu se charger. Vérifiez votre connexion puis rechargez la page.'); return; }
+  const THREE = window.THREE;
+  const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 900);
+
+  /* ---------- rendu ---------- */
+  const canvas = $('gl');
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' }); }
+  catch (e) { fail('WebGL n’est pas disponible sur cet appareil ou ce navigateur.'); return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2));
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(62, 1, 0.2, 9000);
+  const env = new window.CatEnv.Env(scene, renderer, { mobile });
+  function resize() {
+    const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    camera.userData.pxScale = renderer.domElement.height / (2 * Math.tan(camera.fov * D2R / 2));
+  }
+  addEventListener('resize', resize); resize();
+
+  /* ---------- état ---------- */
+  let sim = null, boat = null, swimmers = [], running = false, paused = false, camMode = 0, started = false, mouseLookActive = false, mouseYaw = 0, mousePitch = 0;
+  const CAMS = ['Arrière', 'Cockpit', 'Orbitale', 'Latérale', 'Aérienne', 'Yeux équipier'];
+  const cfg = { spi: 'reach', boat: 'hobie16', spot: 'riviera', hour: 14, weather: 'sun', windKn: 14, windDir: 0, waveH: 0.8, mode: 'free', foils: false };
+  const keys = {}, touch = {};
+  const orbit = { th: 0.6, ph: 0.35, d: 14 };
+  const cam = { yaw: 0, y: 0, roll: 0, shake: 0 };
+  const DT = 1 / 120;
+  let spiWanted = false, acc = 0, last = 0, hudT = 0, toastT = 0, bestSpeed = 0, dist = 0, bump = 0;
+  let aiRacers = [], weatherClock = 0, weatherBase = null, weatherIndex = 0;
+  let replayData = [], replayGhost = null, replayClock = 0, replayRecordClock = 0, replayPlaying = false;
+  let boatDamage = 0, lastSlamForDamage = 0;
+  const career = (() => { try { return Object.assign({credits:150,wins:0,races:0}, JSON.parse(localStorage.getItem('catamaranCareer')||'{}')); } catch(e) { return {credits:150,wins:0,races:0}; } })();
+  function saveCareer(){ try { localStorage.setItem('catamaranCareer',JSON.stringify(career)); } catch(e){} refreshCareer(); }
+  function refreshCareer(){ if($('careerCredits')) $('careerCredits').textContent=career.credits; if($('careerWins')) $('careerWins').textContent=career.wins; }
+
+  /* ---------- menu ---------- */
+  const boatList = $('boats');
+  function timeLabel(hour) {
+    const h = Math.floor(hour), m = Math.round((hour - h) * 60);
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+  function timeDescription(hour) {
+    if (hour < 5 || hour >= 21.5) return 'Nuit · ciel étoilé et lumière lunaire';
+    if (hour < 7.5) return 'Aube · lumière dorée du matin';
+    if (hour >= 17 && hour < 21.5) return 'Coucher du soleil · ciel chaud et reflets orangés';
+    return 'Journée · lumière naturelle et mer scintillante';
+  }
+  Object.values(P.BOATS).forEach(b => {
+    const el = document.createElement('button'); el.type = 'button'; el.className = 'card'; el.dataset.id = b.id;
+    el.innerHTML = `<b>${b.name}</b><span>${b.desc}</span><small>${b.L.toFixed(2).replace('.', ',')} m · ${b.S.toString().replace('.', ',')} m² · ${b.mass + b.crew[0] + b.crew[1]} kg équipage compris</small>`;
+    el.onclick = () => { cfg.boat = b.id; refreshMenu(); }; boatList.appendChild(el);
+  });
+  function refreshMenu() {
+    if (cfg.boat !== 'nacra15') cfg.foils = false;
+    boatList.querySelectorAll('.card').forEach(e => e.classList.toggle('on', e.dataset.id === cfg.boat));
+    document.querySelectorAll('[data-w]').forEach(e => e.classList.toggle('on', e.dataset.w === cfg.weather));
+    document.querySelectorAll('[data-m]').forEach(e => e.classList.toggle('on', e.dataset.m === cfg.mode));
+    document.querySelectorAll('[data-s]').forEach(e => e.classList.toggle('on', e.dataset.s === cfg.spi));
+    document.querySelectorAll('[data-spot]').forEach(e => e.classList.toggle('on', e.dataset.spot === cfg.spot));
+    $('windV').textContent = cfg.windKn + ' nœuds'; $('waveV').textContent = cfg.waveH.toFixed(1).replace('.', ',') + ' m';
+    const d = cfg.windDir; $('dirV').textContent = d + '° (' + ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(d / 45) % 8] + ')';
+    $('windBeaufort').textContent = beaufort(cfg.windKn);
+    $('hour').value = cfg.hour; $('hourV').textContent = timeLabel(cfg.hour); $('hourDesc').textContent = timeDescription(cfg.hour);
+    $('foils').checked = cfg.foils; $('foils').disabled = cfg.boat !== 'nacra15';
+    $('foilHint').textContent = cfg.boat === 'nacra15' ? 'Les foils s’ajoutent au bateau et le soulèvent progressivement quand la vitesse augmente.' : 'Sélectionne le Nacra 15 pour activer cette option.';
+  }
+  function beaufort(k) { return k < 7 ? 'Petit temps' : k < 11 ? 'Brise légère' : k < 17 ? 'Jolie brise, idéal' : k < 22 ? 'Bonne brise, trapèze' : k < 28 ? 'Vent frais, dessalages probables' : 'Coup de vent, pour experts'; }
+  document.querySelectorAll('[data-w]').forEach(e => e.onclick = () => { cfg.weather = e.dataset.w; refreshMenu(); });
+  document.querySelectorAll('[data-s]').forEach(e => e.onclick = () => { cfg.spi = e.dataset.s; refreshMenu(); });
+  document.querySelectorAll('[data-m]').forEach(e => e.onclick = () => { cfg.mode = e.dataset.m; refreshMenu(); });
+  document.querySelectorAll('[data-spot]').forEach(e => e.onclick = () => { cfg.spot = e.dataset.spot; refreshMenu(); });
+  $('foils').onchange = e => { cfg.foils = e.target.checked && cfg.boat === 'nacra15'; refreshMenu(); };
+  $('hour').oninput = e => { cfg.hour = +e.target.value; refreshMenu(); };
+  $('wind').oninput = e => { cfg.windKn = +e.target.value; refreshMenu(); };
+  $('wave').oninput = e => { cfg.waveH = +e.target.value / 10; refreshMenu(); };
+  $('dir').oninput = e => { cfg.windDir = +e.target.value; refreshMenu(); };
+  refreshMenu();
+
+  function applyHullColor(){
+    if(!boat) return; const color=$('hullColor')?.value; if(!color) return;
+    boat.root.traverse(o=>{ if(o.isMesh && o.material && o.material.color && o.material.vertexColors) o.material.color.set(color); });
+  }
+  $('hullColor').addEventListener('input',applyHullColor);
+  $('repairBtn').onclick=()=>{ if(career.credits<50){toast('Pas assez de crédits : une réparation coûte 50 crédits.',2200);return;} career.credits-=50; boatDamage=0; lastSlamForDamage=0; saveCareer(); if(sim){sim.u*=0.96;sim.slam=0;sim.buryI=0;} toast('Réparation terminée : bateau remis à neuf.',2000); };
+  refreshCareer();
+  /* ---------- démarrage ---------- */
+  function start() {
+    if (boat) boat.dispose(); swimmers.forEach(s => s.dispose(scene)); swimmers = [];
+    aiRacers.forEach(a => a.boat.dispose()); aiRacers = []; if (replayGhost) { replayGhost.dispose(); replayGhost = null; } replayData = []; replayPlaying = false; replayClock = 0; replayRecordClock = 0; weatherClock = 0; weatherIndex = 0;
+    weatherBase = { windKn: cfg.windKn, windDir: cfg.windDir, waveH: cfg.waveH };
+    sim = new P.Sim(cfg.boat, { spiType: cfg.spi === 'none' ? null : cfg.spi, windKn: cfg.windKn, windDir: cfg.windDir, waveH: cfg.waveH, mode: cfg.mode, foils: cfg.foils, seed: (Math.random() * 1e6) | 0 });
+    boat = new window.CatBoat.Boat(scene, cfg.boat, cfg.spi, cfg.foils); applyHullColor(); boatDamage=0; lastSlamForDamage=0;
+    if (cfg.mode === 'course' && $('aiEnabled').checked) {
+      const aiSpecs = [{x:-13,z:10,psi:76},{x:13,z:18,psi:105},{x:0,z:28,psi:90}];
+      aiRacers = aiSpecs.map((a,i) => { const simAI = new P.Sim('hobie16', { windKn:cfg.windKn, windDir:cfg.windDir, waveH:cfg.waveH, mode:'course', seed:91+i }); simAI.x=a.x; simAI.z=a.z; simAI.psi=a.psi*D2R; const aiBoat = new window.CatBoat.Boat(scene,'hobie16','none',false); return {sim:simAI,boat:aiBoat,name:'IA '+(i+1)}; });
+    }
+    swimmers = [0, 1].map(i => new window.CatBoat.Swimmer(scene, window.CatBoat.LOOKS[cfg.boat].vest, i));
+    env.setWeather(cfg.weather, cfg.waveH, cfg.windDir); env.setLocation(cfg.spot); env.setTimeOfDay(cfg.hour); env.setWaves(sim.waves, cfg.waveH); env.setBuoys(sim.buoys);
+    cam.yaw = sim.psi; cam.y = 0; orbit.d = 9 + sim.boat.L * 1.2;
+    $('menu').hidden = true; $('hud').hidden = false; $('touch').hidden = !('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    spiWanted = false; running = true; paused = false; acc = 0; last = performance.now(); bestSpeed = 0; dist = 0;
+    $('goal').hidden = cfg.mode !== 'course'; $('end').hidden = true;
+    const spotName = ({ riviera: 'Côte d’Azur', moorea: 'Lagon de Moorea', dolphin: 'Baie des dauphins', brest: 'Rade de Brest', greece: 'Mer Égée' })[cfg.spot];
+    toast(spotName + ' · ' + timeLabel(cfg.hour) + (cfg.foils ? ' · foils actifs' : '') + ' · cap à l’Est, vent de ' + cfg.windDir + '°. Bonne navigation !', 3500); startAudio();
+    if (!started) { started = true; requestAnimationFrame(frame); }
+  }
+  $('go').onclick = start; $('again').onclick = start;
+  $('menuBtn').onclick = () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); running = false; $('menu').hidden = false; $('hud').hidden = true; $('touch').hidden = true; };
+  $('camBtn').onclick = () => nextCam(); $('replayBtn').onclick = () => playReplay(); $('mouseBtn').onclick = () => toggleMouseLook(); $('pauseBtn').onclick = () => togglePause();
+  function recordReplay(dt) {
+    if (replayPlaying || !sim) return;
+    replayRecordClock += dt;
+    if (replayRecordClock < 0.15) return;
+    replayRecordClock = 0;
+    const snap = Object.assign({}, sim, {
+      crew: sim.crew.map(c => Object.assign({},c)), wind: Object.assign({},sim.wind),
+      flags: Object.assign({},sim.flags), cap: Object.assign({},sim.cap), events: []
+    });
+    replayData.push(snap); if (replayData.length > 2400) replayData.shift();
+  }
+  function playReplay() {
+    if (!sim || replayData.length < 2) { toast('Pas encore assez de navigation enregistrée.',1800); return; }
+    if (!replayGhost) { replayGhost = new window.CatBoat.Boat(scene,cfg.boat,cfg.spi,cfg.foils); }
+    replayGhost.root.visible = true; replayPlaying = true; replayClock = 0;
+    toast('Replay : lecture de votre navigation enregistrée.',1800);
+  }
+  function updateReplay(dt) {
+    if (!replayPlaying || !replayGhost || replayData.length < 2) return;
+    replayClock += dt; const idx = Math.min(replayData.length-1,Math.floor(replayClock/0.15));
+    replayGhost.update(replayData[idx],replayData[idx].t);
+    if (idx >= replayData.length-1) { replayPlaying = false; replayGhost.root.visible = false; toast('Fin du replay.',1400); }
+  }
+
+  function updateDynamicWeather(dt) {
+    if (!$('dynamicWeather').checked || !sim || cfg.mode !== 'course') return;
+    weatherClock += dt;
+    if (weatherClock < 60) return;
+    weatherClock = 0; weatherIndex++;
+    const b = weatherBase, phase = weatherIndex;
+    const windKn = clamp(b.windKn + Math.sin(phase * 1.7) * 4 + Math.cos(phase * 0.63) * 2, 4, 30);
+    const windDir = ((b.windDir + Math.round(Math.sin(phase * 0.8) * 25 / 10) * 10) % 360 + 360) % 360;
+    const waveH = clamp(b.waveH + Math.sin(phase * 1.15) * 0.35, 0.1, 2.5);
+    const skies = ['sun','cloudy','grey','cloudy']; const sky = skies[phase % skies.length];
+    sim.setConfig({windKn,windDir,waveH});
+    env.setWeather(sky,waveH,windDir); env.setWaves(sim.waves,waveH);
+    aiRacers.forEach(a => a.sim.setConfig({windKn,windDir,waveH}));
+    $('tws').textContent = Math.round(windKn); $('waveH').textContent = waveH.toFixed(1).replace('.',',');
+    toast('Météo changeante : '+windKn.toFixed(0)+' nœuds · vagues '+waveH.toFixed(1)+' m · '+({sun:'éclaircies',cloudy:'ciel nuageux',grey:'ciel couvert'}[sky]),2600);
+  }
+  function stepAI(dt) {
+    for (const a of aiRacers) {
+      const s = a.sim; if (s.course && !s.course.finished) {
+        const target = s.buoys[Math.min(s.course.next,s.buoys.length-1)];
+        const desired = Math.atan2(target.x-s.x, -(target.z-s.z));
+        const err = P.wrapPi(desired-s.psi);
+        const input = {left:err < -0.07,right:err > 0.07,auto:true,slow:false,sheetIn:false,sheetOut:Math.abs(err)>0.7,dump:false,righting:true,bias:0,spiUp:false};
+        s.step(dt,input);
+      }
+    }
+  }
+
+  function toggleSpi() {
+    if (!sim || sim.cap.mode !== 'normal') { toast('Redressez d\u2019abord le bateau.', 1600); return; }
+    if (cfg.spi === 'none') { toast('Pas de spi choisi : choisissez-en un dans le menu.', 2200); return; }
+    spiWanted = !spiWanted;
+    if (spiWanted) toast(Math.abs(sim.awa) < 75 * D2R ? 'Spi envoy\u00e9, mais il faseye au pr\u00e8s : abattez vers le largue.' : (cfg.spi === 'reach' ? 'Spi de travers envoy\u00e9 : id\u00e9al du travers au largue. F pour le ranger.' : 'Spi de portant envoy\u00e9 : id\u00e9al du largue au vent arri\u00e8re. F pour le ranger.'), 2600);
+    else toast('Spi rang\u00e9.', 1600);
+  }
+  function nextCam() {
+    camMode = (camMode + 1) % CAMS.length;
+    if (camMode === 5 && sim) { mouseYaw = sim.psi; mousePitch = 0; }
+    if (camMode !== 5 && document.pointerLockElement === canvas) document.exitPointerLock();
+    toast('Caméra : ' + CAMS[camMode], 1400);
+  }
+  function toggleMouseLook() {
+    if (!running || !sim) { toast('Démarre la navigation pour déplacer la vue.', 1800); return; }
+    if (document.pointerLockElement === canvas) { document.exitPointerLock(); return; }
+    if (camMode !== 5) { camMode = 5; mouseYaw = sim.psi; mousePitch = 0; toast('Caméra : Yeux équipier', 1400); }
+    if (!canvas.requestPointerLock) { toast('Le verrouillage de la souris n’est pas pris en charge par ce navigateur.', 2600); return; }
+    try {
+      const request = canvas.requestPointerLock();
+      if (request && request.catch) request.catch(() => toast('Clique dans la fenêtre du simulateur puis appuie sur L.', 2400));
+    } catch (_) { toast('Clique dans la fenêtre du simulateur puis appuie sur L.', 2400); }
+  }
+  document.addEventListener('pointerlockchange', () => {
+    mouseLookActive = document.pointerLockElement === canvas;
+    $('mouseBtn').textContent = mouseLookActive ? 'Libérer souris (L)' : 'Verrouiller souris (L)';
+    if (mouseLookActive && camMode !== 5) { camMode = 5; if (sim) mouseYaw = sim.psi; }
+  });
+  document.addEventListener('pointerlockerror', () => toast('Impossible de verrouiller la souris. Appuie sur L après avoir cliqué dans le jeu.', 2600));
+  document.addEventListener('mousemove', e => {
+    if (document.pointerLockElement !== canvas || camMode !== 5) return;
+    mouseYaw += e.movementX * 0.0024; mousePitch = clamp(mousePitch - e.movementY * 0.0022, -0.8, 0.8);
+  });
+  function togglePause() {
+    paused = !paused;
+    if (paused && document.pointerLockElement === canvas) document.exitPointerLock();
+    $('pauseBtn').textContent = paused ? 'Reprendre' : 'Pause'; $('paused').hidden = !paused; last = performance.now();
+  }
+  let flashT = 0;
+  function flash(t, sub, bad, ms) { const e = $('flash'); e.innerHTML = t + (sub ? '<small>' + sub + '</small>' : ''); e.classList.toggle('bad', !!bad); e.classList.add('show'); clearTimeout(flashT); flashT = setTimeout(() => e.classList.remove('show'), ms || 1800); }
+  function toast(t, ms) { const e = $('toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('show'), ms || 2000); }
+
+  /* ---------- commandes ---------- */
+  addEventListener('keydown', e => {
+    if (!running) return;
+    const k = e.key.toLowerCase();
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+    if (e.repeat) { keys[k] = true; return; }
+    keys[k] = true;
+    if (k === 'c') nextCam(); else if (k === 'f') toggleSpi(); else if (k === 'p') togglePause(); else if (k === 'l') toggleMouseLook(); else if (k === 'enter') start();
+  });
+  addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+  addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+  document.querySelectorAll('[data-k]').forEach(b => {
+    const k = b.dataset.k;
+    b.addEventListener('pointerdown', e => { e.preventDefault(); touch[k] = true; b.classList.add('down'); b.setPointerCapture(e.pointerId); if (k === 'cam') nextCam(); if (k === 'spi') toggleSpi(); });
+    const up = () => { touch[k] = false; b.classList.remove('down'); };
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+  });
+  function readInput() {
+    const K = (a, b) => keys[a] || keys[b] || touch[a];
+    return {
+      left: keys['arrowleft'] || keys['a'] || touch.left, right: keys['arrowright'] || keys['d'] || touch.right,
+      auto: keys['arrowup'] || keys['w'] || touch.up, slow: keys['arrowdown'] || keys['s'] || touch.down,
+      sheetIn: keys['q'] || touch.in, sheetOut: keys['e'] || touch.out, dump: keys[' '] || touch.dump, righting: keys['r'] || touch.right_boat,
+      bias: keys['t'] ? 0.6 : 0, spiUp: spiWanted
+    };
+  }
+  // caméra orbitale : glisser pour tourner, molette pour zoomer
+  let drag = null;
+  canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; if (camMode !== 2 && running && !e.isPrimary) drag = null; });
+  addEventListener('pointerup', () => { drag = null; });
+  addEventListener('pointermove', e => { if (!drag || camMode !== 2) return; orbit.th -= (e.clientX - drag.x) * 0.006; orbit.ph = clamp(orbit.ph + (e.clientY - drag.y) * 0.004, 0.03, 1.45); drag.x = e.clientX; drag.y = e.clientY; });
+  canvas.addEventListener('wheel', e => { orbit.d = clamp(orbit.d * (1 + e.deltaY * 0.001), 4, 60); }, { passive: true });
+  canvas.addEventListener('dblclick', () => nextCam());
+
+  /* ---------- son ---------- */
+  let ac = null, gWind, gSea, fWind;
+  function startAudio() {
+    if (ac) { ac.resume(); return; }
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const mk = (type, f, q) => { const s = ac.createBufferSource(); s.buffer = buf; s.loop = true; const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ac.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(ac.destination); s.start(); return { g, fl }; };
+      const w = mk('bandpass', 500, 0.6), s = mk('lowpass', 420, 0.4); gWind = w.g; fWind = w.fl; gSea = s.g;
+    } catch (e) { ac = null; }
+  }
+  $('soundBtn').onclick = () => { if (!ac) startAudio(); else if (ac.state === 'running') { ac.suspend(); $('soundBtn').textContent = 'Son coupé'; } else { ac.resume(); $('soundBtn').textContent = 'Son actif'; } };
+  function updateAudio() {
+    if (!ac || ac.state !== 'running') return;
+    const t = ac.currentTime, sp = Math.hypot(sim.u, sim.v);
+    gWind.gain.setTargetAtTime(clamp(sim.aws / 20, 0, 1) * 0.12, t, 0.2); fWind.frequency.setTargetAtTime(350 + sim.aws * 30, t, 0.2);
+    gSea.gain.setTargetAtTime(clamp(sp / 9, 0, 1) * 0.16 + cfg.waveH * 0.02 + sim.buryI * 0.2, t, 0.15);
+  }
+
+  /* ---------- effets ---------- */
+  function effects(dt) {
+    const b = sim.boat, L = b.L, f = [Math.sin(sim.psi), -Math.cos(sim.psi)], s = [Math.cos(sim.psi), Math.sin(sim.psi)], hb = boat.hbc;
+    const sp = Math.hypot(sim.u, sim.v), vx = f[0] * sim.u + s[0] * sim.v, vz = f[1] * sim.u + s[1] * sim.v;
+    if (sim.cap.mode === 'normal') {
+      const down = sim.heel >= 0 ? 1 : -1;
+      for (const sd of [-1, 1]) {
+        const lift = sd === down ? 0 : clamp((Math.abs(sim.heel) - 0.1) / 0.1, 0, 1);       // coque soulevée : plus d'écume
+        const wet = 1 - lift * 0.85;
+        const bx = sim.x + s[0] * sd * hb - f[0] * (-L * 0.5 * 0.0), bz = sim.z + s[1] * sd * hb;
+        const ax = bx + f[0] * (L * 0.46), az = bz + f[1] * (L * 0.46);        // étrave
+        const sx = bx - f[0] * (L * 0.46), sz = bz - f[1] * (L * 0.46);        // tableau arrière
+        if (Math.random() < sp * dt * 5 * wet) env.spray(ax, sim.y, az, vx, vz, 1, 0.5 + sp * 0.05 + sim.buryI * 3);
+        if (Math.random() < sp * dt * 14 * wet) env.foam(sx, sz, vx * 0.1, vz * 0.1, 1, 0.12, 0.5 + sp * 0.04);
+        if (sp > 3 && Math.random() < dt * 8 * wet) env.foam(bx + f[0] * L * 0.2, bz + f[1] * L * 0.2, 0, 0, 1, 0.3, 0.5);
+      }
+    }
+    for (const ev of sim.events) {
+      if (ev.type === 'slam') { cam.shake = Math.max(cam.shake, ev.i); for (const sd of [-1, 1]) env.spray(sim.x + s[0] * sd * hb + f[0] * L * 0.4, sim.y, sim.z + s[1] * sd * hb + f[1] * L * 0.4, vx, vz, 14 + 24 * ev.i | 0, 1.0 + ev.i); }
+      else if (ev.type === 'bury') { cam.shake = Math.max(cam.shake, 0.5 + ev.i); flash('Enfournement !', 'L\u2019\u00e9quipage recule. Choquez la voile et abattez un peu.', true, 2200); for (const sd of [-1, 1]) env.spray(sim.x + s[0] * sd * hb + f[0] * L * 0.45, sim.y + 0.2, sim.z + s[1] * sd * hb + f[1] * L * 0.45, vx * 0.6, vz * 0.6, 40 + 40 * ev.i | 0, 1.8 + 2 * ev.i); env.foam(sim.x + f[0] * L * 0.4, sim.z + f[1] * L * 0.4, vx, vz, 14, 1.4, 1.6); }
+      else if (ev.type === 'surf') toast('Surf ! Le bateau accroche la vague.', 1800);
+      else if (ev.type === 'splash') { env.spray(ev.x, 0, ev.z, 0, 0, 24 | 0, 1.4); env.foam(ev.x, ev.z, 0, 0, 10, 0.8, 1.2); }
+      else if (ev.type === 'capsize') { spiWanted = false; cam.shake = 1; toast(ev.kind === 'pitch' ? 'Chavirage par l’avant ! Maintenez R pour redresser.' : (ev.turtle ? 'Dessalage : le bateau est à l’envers. Maintenez R.' : 'Dessalage ! Maintenez R pour redresser.'), 4500); env.spray(sim.x, sim.y, sim.z, 0, 0, 60, 2); }
+      else if (ev.type === 'righted') toast('Bateau redressé, les équipiers remontent à bord.', 3000);
+      else if (ev.type === 'bump') { toast('Contact avec la bouée !', 1500); bump = 1; }
+      else if (ev.type === 'limit') toast('Limite de la zone de navigation.', 1500);
+      else if (ev.type === 'mark') { const n = ev.n; toast(n >= sim.buoys.length ? 'Arrivée ! ' + fmt(sim.t) : 'Bouée validée (' + n + '/' + sim.buoys.length + ')', 2500); if (n >= sim.buoys.length) endRace(); }
+    }
+    if (sim.cap.mode === 'normal' && sim.surf > 0.3) {          // surf : large nappe d'écume derrière, gerbes d'étrave
+      if (Math.random() < dt * 40 * sim.surf) env.foam(sim.x - f[0] * L * 0.5 + (Math.random() - 0.5) * 3, sim.z - f[1] * L * 0.5 + (Math.random() - 0.5) * 3, vx * 0.1, vz * 0.1, 1, 0.5, 1.3);
+      if (Math.random() < dt * 25 * sim.surf) env.spray(sim.x + f[0] * L * 0.45 + s[0] * (Math.random() < 0.5 ? -hb : hb), sim.y, sim.z + f[1] * L * 0.45 + s[1] * (Math.random() < 0.5 ? -hb : hb), vx, vz, 3, 1.1);
+    }
+    if (sim.cap.mode !== 'normal' && Math.random() < dt * 6) env.foam(sim.x + (Math.random() - 0.5) * 3, sim.z + (Math.random() - 0.5) * 3, 0, 0, 1, 0.3, 1.0);
+  }
+  function fmt(t) { const m = Math.floor(t / 60), s = (t % 60).toFixed(1).padStart(4, '0'); return m + ' min ' + s + ' s'; }
+  function endRace() { $('end').hidden = false; $('endT').textContent = fmt(sim.course.time); $('endV').textContent = (bestSpeed / KN).toFixed(1).replace('.', ',') + ' nœuds'; career.races++; const reward=100+Math.max(0,Math.round((30-boatDamage*0.3)*2)); career.credits+=reward; if(aiRacers.length===0 || sim.course.time<Math.max(...aiRacers.map(a=>a.sim.course?.time||sim.course.time))) career.wins++; saveCareer(); toast('Course terminée : +'+reward+' crédits.',2600); }
+
+  /* ---------- caméras ---------- */
+  const _o = {};
+  function updateCamera(dt) {
+    const f = new THREE.Vector3(Math.sin(sim.psi), 0, -Math.cos(sim.psi)), p = new THREE.Vector3(sim.x, sim.y, sim.z), L = sim.boat.L;
+    cam.yaw += wrapPi(sim.psi - cam.yaw) * (1 - Math.exp(-dt * 1.6)); cam.y += (sim.y - cam.y) * (1 - Math.exp(-dt * 2.5));
+    cam.roll += (-sim.heel * 0.15 - cam.roll) * (1 - Math.exp(-dt * 3)); cam.shake = Math.max(0, cam.shake - dt * 2.2);
+    const cf = new THREE.Vector3(Math.sin(cam.yaw), 0, -Math.cos(cam.yaw)), up = new THREE.Vector3(0, 1, 0);
+    const sh = cam.shake * 0.12; let tx = 0, ty = 0;
+    camera.up.set(0, 1, 0); camera.fov = 62;
+    if (camMode === 0) {
+      const d = 8.5 + L * 1.5;
+      camera.position.copy(p).addScaledVector(cf, -d); camera.position.y = cam.y + 3.0 + L * 0.28 + sim.pitch * 0.5;
+      camera.lookAt(p.x + cf.x * 4, sim.y + 1.3 + sim.pitch * 0.8, p.z + cf.z * 4); camera.rotateZ(cam.roll);
+    } else if (camMode === 1) {
+      const aft = L * 0.22; camera.position.set(p.x - f.x * aft, sim.y + 1.55 + 0.2 * Math.cos(sim.heel) + sim.pitch * 0.2, p.z - f.z * aft);
+      camera.fov = 72;
+      camera.lookAt(p.x + f.x * 20, sim.y + 1.2 + sim.pitch * 8, p.z + f.z * 20); camera.rotateZ(-sim.heel * 0.55);
+    } else if (camMode === 2) {
+      const th = orbit.th + (sim.psi * 0.0), cp = Math.cos(orbit.ph);
+      camera.position.set(p.x + Math.sin(th) * cp * orbit.d, sim.y + 0.8 + Math.sin(orbit.ph) * orbit.d, p.z + Math.cos(th) * cp * orbit.d);
+      camera.lookAt(p.x, sim.y + 1.4, p.z);
+    } else if (camMode === 3) {
+      const sdv = new THREE.Vector3(Math.cos(cam.yaw), 0, Math.sin(cam.yaw));
+      camera.position.copy(p).addScaledVector(sdv, 13 + L).addScaledVector(cf, 1.5); camera.position.y = cam.y + 2.2;
+      camera.lookAt(p.x, sim.y + 2.0, p.z); camera.fov = 52;
+    } else if (camMode === 4) {
+      camera.position.set(p.x - cf.x * 4, cam.y + 55, p.z - cf.z * 4); camera.up.copy(cf); camera.lookAt(p.x, sim.y, p.z); camera.fov = 58;
+    } else {
+      const eyeIdx = sim.crew[0].state === 'boat' ? 0 : (sim.crew[1].state === 'boat' ? 1 : -1);
+      if (eyeIdx >= 0 && boat.crew[eyeIdx]) {
+        boat.root.updateMatrixWorld(true);
+        camera.position.copy(boat.crew[eyeIdx].torso.localToWorld(new THREE.Vector3(0, 0.74, -0.12)));
+        const yaw = mouseLookActive ? mouseYaw : sim.psi, cp = Math.cos(mousePitch);
+        const view = new THREE.Vector3(Math.sin(yaw) * cp, Math.sin(mousePitch), -Math.cos(yaw) * cp);
+        camera.lookAt(camera.position.x + view.x * 26, camera.position.y + view.y * 26 + sim.pitch * 2.8, camera.position.z + view.z * 26);
+        camera.fov = 78; camera.rotateZ(-sim.heel * 0.5);
+      } else {
+        camera.position.copy(p).addScaledVector(cf, -3);
+        camera.position.y = cam.y + 1.6;
+        camera.lookAt(p.x + f.x * 24, sim.y + 1.2, p.z + f.z * 24); camera.fov = 78;
+      }
+    }
+    if (sh > 0) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh));
+    P.waveAt(sim.waves, camera.position.x, camera.position.z, sim.t, _o); if (camera.position.y < _o.h + 0.6) camera.position.y = _o.h + 0.6;
+    camera.updateProjectionMatrix();
+  }
+
+  /* ---------- instruments ---------- */
+  const dial = $('dial').getContext('2d'), trim = $('trim').getContext('2d'), heelC = $('heel').getContext('2d');
+  const C = { ink: '#e8f2f7', dim: '#7f98a6', sea: '#2fd4c8', amber: '#ffb347', red: '#ff5d5d', green: '#5be38a' };
+  function drawDial() {
+    const c = dial, W = 220, cx = 110, cy = 110, R = 98; c.clearRect(0, 0, W, W);
+    c.save(); c.translate(cx, cy);
+    c.fillStyle = 'rgba(7,24,33,0.72)'; c.beginPath(); c.arc(0, 0, R + 8, 0, 7); c.fill();
+    c.save(); c.rotate(-sim.psi);
+    for (let a = 0; a < 360; a += 5) { const r = a * D2R, big = a % 30 === 0; c.strokeStyle = big ? C.ink : C.dim; c.lineWidth = big ? 2 : 1; c.beginPath(); c.moveTo(Math.sin(r) * (R - (big ? 12 : 6)), -Math.cos(r) * (R - (big ? 12 : 6))); c.lineTo(Math.sin(r) * R, -Math.cos(r) * R); c.stroke(); }
+    c.font = '600 13px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    [['N', 0, C.red], ['E', 90, C.ink], ['S', 180, C.ink], ['O', 270, C.ink]].forEach(([t, a, col]) => { const r = a * D2R; c.fillStyle = col; c.save(); c.translate(Math.sin(r) * (R - 26), -Math.cos(r) * (R - 26)); c.rotate(sim.psi); c.fillText(t, 0, 0); c.restore(); });
+    // zone interdite (±30° autour du vent réel)
+    const wf = sim.wind.dirFrom; c.fillStyle = 'rgba(255,93,93,0.22)'; c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, R - 36, wf - Math.PI / 2 - 30 * D2R, wf - Math.PI / 2 + 30 * D2R); c.closePath(); c.fill();
+    c.restore();
+    // vent réel (bleu) : flèche venant du vent
+    const tw = sim.wind.dirFrom - sim.psi; arrow(c, tw, R - 34, C.sea, 3);
+    // vent apparent (orange) : angle depuis la proue, positif tribord
+    if (sim.aws > 0.3) arrow(c, sim.awa, R - 52, C.amber, 2);
+    // bateau + voile
+    c.fillStyle = '#d9e6ec'; c.strokeStyle = '#d9e6ec';
+    c.fillRect(-14, -22, 6, 44); c.fillRect(8, -22, 6, 44); c.fillRect(-12, -4, 24, 3);
+    c.lineWidth = 3; c.strokeStyle = '#fff'; c.beginPath(); c.moveTo(0, -6); c.lineTo(Math.sin(sim.sailAngle) * 36, -6 + Math.cos(sim.sailAngle) * 36); c.stroke();
+    c.restore();
+    c.fillStyle = C.ink; c.font = '700 13px system-ui'; c.textAlign = 'center'; c.fillText(String(Math.round(sim.psi / D2R) % 360).padStart(3, '0') + '°', 110, 14);
+    c.beginPath(); c.moveTo(110, 20); c.lineTo(105, 28); c.lineTo(115, 28); c.closePath(); c.fill();
+  }
+  function arrow(c, ang, r, col, w) {
+    c.save(); c.rotate(ang); c.fillStyle = col; c.strokeStyle = col; c.lineWidth = w;
+    c.beginPath(); c.moveTo(0, -r); c.lineTo(0, -r + 20); c.stroke(); c.beginPath(); c.moveTo(0, -r + 18); c.lineTo(-6, -r + 6); c.lineTo(6, -r + 6); c.closePath(); c.fill(); c.restore();
+  }
+  function drawTrim() {
+    const c = trim, W = 220, H = 42; c.clearRect(0, 0, W, H);
+    const x = d => 8 + clamp(d, 0, 95) / 95 * (W - 16);
+    c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(8, 20, W - 16, 6);
+    const opt = clamp(Math.abs(sim.awa) - 14 * D2R, 6 * D2R, 95 * D2R) / D2R;
+    c.fillStyle = 'rgba(91,227,138,0.35)'; c.fillRect(x(opt - 4), 16, x(opt + 4) - x(opt - 4), 14);
+    c.fillStyle = C.ink; c.beginPath(); c.arc(x(sim.sheet / D2R), 23, 7, 0, 7); c.fill();
+    c.fillStyle = C.dim; c.font = '11px system-ui'; c.textAlign = 'left'; c.fillText('bordé', 8, 12); c.textAlign = 'right'; c.fillText('choqué', W - 8, 12);
+    c.textAlign = 'center'; c.fillStyle = sim.flags.stall ? C.red : sim.flags.luff ? C.amber : C.green; c.fillText(sim.flags.stall ? 'trop bordé' : sim.flags.luff ? 'ça faseye : border' : 'bon réglage', W / 2, 40);
+  }
+  function drawHeel() {
+    const c = heelC, W = 220, H = 84; c.clearRect(0, 0, W, H); const cx = 110, cy = 76, R = 66, deg = sim.heel / D2R, a = Math.abs(deg);
+    c.lineWidth = 8; c.lineCap = 'round';
+    [[-90, -35, C.red], [-35, -15, C.amber], [-15, 15, C.green], [15, 35, C.amber], [35, 90, C.red]].forEach(([a0, a1, col]) => { c.strokeStyle = col; c.globalAlpha = 0.4; c.beginPath(); c.arc(cx, cy, R, (a0 - 90) * D2R, (a1 - 90) * D2R); c.stroke(); });
+    c.globalAlpha = 1; const ang = (clamp(deg, -90, 90) - 90) * D2R; c.strokeStyle = C.ink; c.lineWidth = 3; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(ang) * (R - 8), cy + Math.sin(ang) * (R - 8)); c.stroke();
+    c.fillStyle = C.ink; c.font = '700 15px system-ui'; c.textAlign = 'center'; c.fillText(Math.round(a) + '°' + (a > 2 ? (deg > 0 ? ' trib.' : ' bâb.') : ''), cx, cy - 18);
+  }
+  const hudEl = { spd: $('spd'), hdg: $('hdg'), tws: $('tws'), aws: $('aws'), wave: $('waveH'), st: $('state'), pos: $('sail'), vmg: $('vmg'), tack: $('tack'), prog: $('prog'), progBar: $('progBar'), warn: $('warn'), goalT: $('goalT'), timer: $('timer'), mark: $('mark') };
+  const _p = new THREE.Vector3();
+  function updateHud() {
+    const sp = Math.hypot(sim.u, sim.v) / KN; if (sp * KN > bestSpeed) bestSpeed = sp * KN;
+    hudEl.spd.textContent = sp.toFixed(1).replace('.', ',');
+    hudEl.tws.textContent = (sim.wind.speed / KN).toFixed(0); hudEl.aws.textContent = (sim.aws / KN).toFixed(0);
+    hudEl.hdg.textContent = String(Math.round(sim.psi / D2R) % 360).padStart(3, '0');
+    hudEl.wave.textContent = (cfg.waveH).toFixed(1).replace('.', ',');
+    const twa = Math.abs(wrapPi(sim.psi - sim.wind.dirFrom)) / D2R;
+    const gustKn = sim.cfg.windKn * sim.wind.gust;
+    hudEl.pos.dataset.gust = sim.wind.gust > 0.05 ? 'on' : 'off';
+    hudEl.pos.textContent = sim.pointOfSail() + ' · ' + sim.tackName() + (sim.spiP > 0.02 ? (sim.spiFill < 0.5 ? ' · spi qui faseye' : ' · spi') : '') + (sim.wind.gust > 0.05 ? ' · RISÉE +' + gustKn.toFixed(1).replace('.', ',') + ' kn' : '');
+    const vmgU = sim.u * Math.cos(twa * D2R) / KN, vmg = Math.abs(vmgU);
+    hudEl.vmg.textContent = vmg.toFixed(1).replace('.', ',');
+    hudEl.st.textContent = sim.statusText(); hudEl.st.dataset.s = sim.cap.mode !== 'normal' ? 'bad' : (sim.flags.flying > 0.5 || sim.flags.bury > 0.35 ? 'warn' : 'ok');
+    const capd = sim.cap.mode !== 'normal'; hudEl.prog.hidden = !capd; if (capd) hudEl.progBar.style.width = Math.round(clamp(sim.cap.progress, 0, 1) * 100) + '%';
+    hudEl.warn.hidden = !sim.outOfBounds;
+    drawDial(); drawTrim(); drawHeel();
+    if (cfg.mode === 'course' && sim.course) {
+      const nx = sim.buoys[Math.min(sim.course.next, sim.buoys.length - 1)], d = Math.hypot(nx.x - sim.x, nx.z - sim.z), brg = ((Math.atan2(nx.x - sim.x, -(nx.z - sim.z)) / D2R) + 360) % 360;
+      hudEl.goalT.textContent = nx.name + ' · ' + Math.round(d) + ' m · relèvement ' + String(Math.round(brg)).padStart(3, '0') + '°';
+      hudEl.timer.textContent = sim.course.finished ? fmt(sim.course.time) : fmt(sim.t);
+    }
+  }
+  function updateMark() {
+    // étiquette de bouée projetée à l'écran
+    const m = cfg.mode === 'course' && sim.course ? sim.buoys[Math.min(sim.course.next, sim.buoys.length - 1)] : null, el = hudEl.mark;
+    if (!m) { el.hidden = true; return; }
+    _p.set(m.x, 4, m.z).project(camera);
+    if (_p.z > 1) { el.hidden = true; return; }
+    el.hidden = false; const x = (_p.x * 0.5 + 0.5) * innerWidth, y = (-_p.y * 0.5 + 0.5) * innerHeight;
+    el.style.transform = `translate(${clamp(x, 40, innerWidth - 40)}px, ${clamp(y, 60, innerHeight - 120)}px) translate(-50%,-100%)`;
+    el.textContent = Math.round(Math.hypot(m.x - sim.x, m.z - sim.z)) + ' m';
+  }
+
+  /* ---------- boucle unique ---------- */
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (!running || !sim) { if (running === false && sim) renderer.render(scene, camera); return; }
+    if (paused) { renderer.render(scene, camera); return; }
+    let dt = (now - last) / 1000; last = now; dt = Math.min(dt, 0.1); acc += dt;
+    const inp = readInput(); let n = 0;
+    while (acc >= DT && n < 24) { sim.step(DT, inp); stepAI(DT); effects(DT); acc -= DT; n++; }
+    if (n === 24) acc = 0;
+    if (document.pointerLockElement === canvas && sim.cap.mode !== 'normal') {
+      document.exitPointerLock(); toast('Souris déverrouillée après le dessalage.', 2200);
+    }
+    boat.update(sim, sim.t); if(sim.slam>lastSlamForDamage+0.25){boatDamage=clamp(boatDamage+Math.min(8,(sim.slam-lastSlamForDamage)*5),0,85);lastSlamForDamage=sim.slam;} if(boatDamage>0) sim.u*=Math.max(0.999,1-dt*boatDamage*0.0008); $('damageHud').hidden=boatDamage<0.5; $('damageValue').textContent=Math.max(0,Math.round(100-boatDamage))+' %'; swimmers.forEach((s, i) => s.update(sim.crew[i], sim, sim.t));
+    aiRacers.forEach(a => a.boat.update(a.sim,a.sim.t)); recordReplay(dt); updateReplay(dt); updateDynamicWeather(dt);
+    updateCamera(dt); env.update(dt, sim, camera); updateMark(); updateAudio();
+    renderer.render(scene, camera);
+    hudT += dt; if (hudT > 0.08) { hudT = 0; updateHud(); }
+    const spd = Math.hypot(sim.u, sim.v) / KN, sl = $('speedlines');
+    sl.style.opacity = env.timeStage === 'night' ? 0 : clamp((spd - 8) / 10, 0, 0.55) * (camMode === 0 || camMode === 1 ? 1 : 0.3);
+  }
+  window.__cat = { get sim() { return sim; }, start, cfg };
+})();
+
+</script>
+
+</body></html>
