@@ -1,0 +1,15 @@
+--- a/catamaran_baie.html
++++ b/catamaran_baie.html
+@@
+-    med: { name: 'Méditerranée', sand: [0.91, 0.85, 0.67], wet: [0.66, 0.60, 0.46], rock: [0.62, 0.58, 0.52], grass: [0.50, 0.60, 0.33], scrub: [0.43, 0.50, 0.28], forest: [0.24, 0.38, 0.22], urban: [[0.82,0.78,0.68],[0.78,0.72,0.62],[0.74,0.71,0.64]],
+-      walls: ['#f3ead7', '#efe3c8', '#e6c48f', '#f0d5c0', '#f7f1e3', '#d7e2e8'], shutters: ['#3e6fa3', '#4f7d5a', '#7a5436', '#f4f4f0', '#3e6fa3', '#8a3b2e'], quay: ['#e7b24a', '#d96b4a', '#e8a39b', '#f0d5c0'],
+-      roofs: [[0.72, 0.33, 0.19], [0.77, 0.38, 0.23], [0.66, 0.29, 0.17], [0.80, 0.45, 0.28]], trees: 'pine', palms: 0.25 },
++    med: { name: 'Méditerranée', sand: [0.96, 0.91, 0.74], wet: [0.73, 0.68, 0.52], rock: [0.48, 0.46, 0.43], grass: [0.42, 0.55, 0.29], scrub: [0.36, 0.47, 0.26], forest: [0.20, 0.34, 0.18], urban: [[0.80,0.72,0.57],[0.72,0.65,0.56],[0.67,0.62,0.58]],
++      walls: ['#efd99a', '#e9a86a', '#f1c28d', '#f2dfbf', '#e8b45c', '#dca46f', '#d7c6a5', '#edcf8a'], shutters: ['#2e6389', '#4d7953', '#315c72', '#315f50', '#6c4432', '#b04e36', '#f1eee2'], quay: ['#e7b24a', '#d96b4a', '#e8a39b', '#f0d5c0'],
++      roofs: [[0.72, 0.30, 0.18], [0.80, 0.40, 0.20], [0.62, 0.27, 0.16], [0.83, 0.48, 0.25]], trees: 'pine', palms: 0.25 },
+@@
+-          if (Math.abs(d - (fd + 20)) < 3.2 || (sd < 3.4 && d > fd - 6 && d < 190)) c = mix(c, ASPH, 0.95);            // rue longitudinale et rues transversales
++          if (Math.abs(d - (fd + 20)) < 3.2 || (sd < 3.4 && d > fd - 6 && d < 190)) c = mix(c, PAVE, 0.95);             // rues piétonnes claires inspirées des ruelles méditerranéennes
+@@
+-    frontRow(-640, 380, 0, u => pz(u) > 0.5 ? { floors: 3 + ((rnd() * 2) | 0), type: 'town' } : (rnd() < 0.3 ? { floors: 4, type: 'hotel' } : { floors: 3, type: 'town' }), true);
++    frontRow(-640, 380, 0, u => pz(u) > 0.5 ? { floors: 4 + ((rnd() * 2) | 0), type: 'town' } : (rnd() < 0.25 ? { floors: 5, type: 'hotel' } : { floors: 4, type: 'town' }), true);
